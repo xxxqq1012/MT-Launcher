@@ -2262,6 +2262,11 @@ electron.ipcRenderer.on('get-plugin-mode', (event, { featureCode, callId }) => {
 if (!window.utools) {
   var __uShim = Object.assign({}, window.ztools)
   var __uGap = {
+    // 部分插件用 utools.getAppVersion() 判断宿主版本（如聚合翻译要求主版本 ≥7），
+    // MT Launcher 不沿用 uTools 版本号，返回高版本避免插件误判"版本太低"。
+    getAppVersion: function () {
+      return '99.0.0'
+    },
     shellOpenItem: function (p) {
       return window.ztools.shellOpenPath ? window.ztools.shellOpenPath(p) : undefined
     },

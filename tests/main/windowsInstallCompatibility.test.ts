@@ -17,12 +17,12 @@ const validInstallInfo: WindowsInstallInfo = {
 
 describe('validateWindowsInstall', () => {
   it('builds a version-specific download page for stable and prerelease versions', () => {
-    expect(getWindowsReleaseUrl()).toBe('https://github.com/ZToolsCenter/ZTools/releases/latest')
+    expect(getWindowsReleaseUrl()).toBe('https://github.com/xxxqq1012/mTools/releases/latest')
     expect(getWindowsReleaseUrl('3.0.0')).toBe(
-      'https://github.com/ZToolsCenter/ZTools/releases/tag/v3.0.0'
+      'https://github.com/xxxqq1012/mTools/releases/tag/v3.0.0'
     )
     expect(getWindowsReleaseUrl('3.0.0-beta.8')).toBe(
-      'https://github.com/ZToolsCenter/ZTools/releases/tag/v3.0.0-beta.8'
+      'https://github.com/xxxqq1012/mTools/releases/tag/v3.0.0-beta.8'
     )
   })
 

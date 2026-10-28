@@ -5,12 +5,14 @@ import yaml from 'yaml'
 import { getGitHubReleaseUrl, GITHUB_LATEST_RELEASE_URL } from '@shared/updateSource'
 import { EXPECTED_ELECTRON_VERSION } from '../runtimeCompatibility'
 
-export const WINDOWS_APP_ID = 'top.z-tools'
+export const WINDOWS_APP_ID = 'com.mtlauncher.app'
 export const WINDOWS_ELECTRON_VERSION = EXPECTED_ELECTRON_VERSION
 export const WINDOWS_UPDATER_TYPE = 'electron-updater-nsis'
 export const WINDOWS_INSTALL_INFO_FILE = 'ztools-install-info.json'
 export const WINDOWS_NSIS_INSTALL_MARKER_FILE = '.ztools-nsis-installed'
 export const WINDOWS_RELEASE_URL = GITHUB_LATEST_RELEASE_URL
+export const WINDOWS_UPDATE_OWNER = 'xxxqq1012'
+export const WINDOWS_UPDATE_REPO = 'mTools'
 
 export interface WindowsInstallInfo {
   schemaVersion: number
@@ -125,8 +127,8 @@ export async function getWindowsInstallCompatibility(): Promise<WindowsInstallCo
     const updateConfig = yaml.parse(await fs.readFile(updateConfigPath, 'utf8'))
     hasUpdateConfig =
       updateConfig?.provider === 'github' &&
-      updateConfig?.owner === 'ZToolsCenter' &&
-      updateConfig?.repo === 'ZTools'
+      updateConfig?.owner === WINDOWS_UPDATE_OWNER &&
+      updateConfig?.repo === WINDOWS_UPDATE_REPO
   } catch {
     hasUpdateConfig = false
   }

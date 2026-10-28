@@ -4,13 +4,12 @@ import { useToast } from '@/components'
 import { ACCOUNT_CHANGED_EVENT } from '@/composables/useZToolsAccount'
 import { MenuRouterItemType } from '@/router'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useAccountProfile, useNotificationCenter } from '@/composables'
+import { useAccountProfile } from '@/composables'
 import { useRoute, useRouter } from 'vue-router'
 
 const router = useRouter()
 const route = useRoute()
 const { success, error, warning, confirm } = useToast()
-const { unreadCount, unreadLabel } = useNotificationCenter()
 const { state: accountProfile, refresh: refreshAccountProfile } = useAccountProfile()
 
 const menuRoutes = ref<MenuRouterItemType[]>([] as MenuRouterItemType[])
@@ -77,14 +76,6 @@ async function loadAccount(force: boolean = false): Promise<void> {
     await router.replace({ name: 'GeneralSetting' })
   }
 }
-
-/**
- * 打开设置插件内的消息中心。
- * @returns 无返回值。
- */
-function openNotifications(): void {
-  void router.replace({ name: 'Notifications' })
-}
 </script>
 
 <template>
@@ -101,19 +92,6 @@ function openNotifications(): void {
         <div :class="menuRoute.meta?.menu?.icon ?? ''" class="menu-icon" style="font-size: 18px" />
         <span class="menu-label">{{ menuRoute.meta?.menu?.label ?? '' }}</span>
       </div>
-    </div>
-
-    <div class="sidebar-footer" :class="{ active: route.name === 'Notifications' }">
-      <button
-        class="notification-dock"
-        :class="{ active: route.name === 'Notifications' }"
-        type="button"
-        title="消息中心"
-        @click="openNotifications"
-      >
-        <div class="i-z-bell" />
-        <span v-if="unreadCount > 0" class="notification-badge">{{ unreadLabel }}</span>
-      </button>
     </div>
   </div>
 </template>

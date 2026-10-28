@@ -42,6 +42,11 @@
         border-radius: 20px;
         padding: 2px 8px;
       }
+      .header .badge.translate {
+        color: #7c3aed;
+        background: #f5f3ff;
+        border-color: #ddd6fe;
+      }
       .actions {
         display: flex;
         gap: 8px;
@@ -127,8 +132,8 @@
   <body>
     <div class="header">
       <img src="icon.png" alt="MT" />
-      <span class="title">截图识别</span>
-      <span class="badge">本地离线 · PaddleOCR</span>
+      <span class="title" id="title">截图识别</span>
+      <span class="badge" id="badge">本地离线 · PaddleOCR</span>
     </div>
     <div class="actions">
       <button id="captureBtn" class="btn primary">框选截图识别</button>
@@ -148,10 +153,32 @@
         const clearBtn = document.getElementById('clearBtn')
         const result = document.getElementById('result')
         const status = document.getElementById('status')
+        const titleEl = document.getElementById('title')
+        const badgeEl = document.getElementById('badge')
+
+        // 当前模式：false=仅识别，true=识别后自动翻译
+        let translateMode = false
 
         function setBusy(busy, msg) {
           captureBtn.disabled = busy
           if (msg) status.textContent = msg
+        }
+
+        // 识别完成后：若为翻译模式，自动跳转到聚合翻译
+        function maybeTranslate(text) {
+          if (!translateMode || !text) return
+          status.textContent = '已识别，正在跳转到聚合翻译…'
+          try {
+            const ok = window.ztools.redirect(['聚合翻译', '翻译'], text)
+            if (ok !== false) {
+              status.textContent = '已跳转到聚合翻译'
+            } else {
+              status.textContent = '跳转翻译失败，请确认已安装「聚合翻译」插件'
+            }
+          } catch (e) {
+            console.error('[ScreenOcr] 跳转翻译失败:', e)
+            status.textContent = '跳转翻译失败: ' + (e && e.message ? e.message : '未知错误')
+          }
         }
 
         async function doCapture() {
@@ -181,7 +208,12 @@
             const res = await window.ztools.ocrRecognize(image)
             if (res && res.success) {
               result.value = res.text || ''
-              status.textContent = res.text ? '识别完成' : '未在所选区域识别到文字'
+              if (res.text) {
+                status.textContent = translateMode ? '识别完成' : '识别完成'
+                maybeTranslate(res.text)
+              } else {
+                status.textContent = '未在所选区域识别到文字'
+              }
             } else {
               status.textContent = '识别失败: ' + (res?.error || '未知错误')
             }
@@ -208,6 +240,19 @@
           result.value = ''
           status.textContent = '点击"框选截图识别"选择屏幕区域'
         })
+
+        // 识别进入的命令（uTools 兼容 API）
+        if (typeof window.utools?.onPluginEnter === 'function') {
+          window.utools.onPluginEnter(function (info) {
+            if (info && info.code === 'screen-ocr-translate') {
+              translateMode = true
+              titleEl.textContent = '截图识别并翻译'
+              badgeEl.textContent = '本地识别 · 自动翻译'
+              badgeEl.classList.add('translate')
+              status.textContent = '截图识别后将自动跳转到聚合翻译'
+            }
+          })
+        }
 
         // 页面加载后自动开始一次截图识别
         setTimeout(doCapture, 300)

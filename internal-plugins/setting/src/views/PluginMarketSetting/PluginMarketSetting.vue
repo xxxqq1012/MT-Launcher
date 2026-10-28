@@ -3,14 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useToast } from '@/components'
 import type { PluginUninstallOptions, TabId } from '@/components'
 import { compareVersions, upgradeInstalledPluginFromMarket, weightedSearch } from '@/utils'
-import {
-  PluginDetail,
-  PluginCard,
-  CategoryCard,
-  CategoryDetail,
-  RefreshButton,
-  UToolsImportCard
-} from './components'
+import { PluginDetail, PluginCard, CategoryCard, CategoryDetail, RefreshButton } from './components'
 import type { Plugin, CategoryInfo, CategoryLayoutSection, PluginDownloadState } from './components'
 import { useJumpFunction, useZtoolsSubInput } from '@/composables'
 import { PluginMarketSettingJumpFunction } from '@/views/PluginMarketSetting/PluginMarketSetting'
@@ -630,9 +623,6 @@ onUnmounted(() => {
     <!-- 可滚动内容区 -->
     <Transition name="list-slide">
       <div v-show="showScrollableContent" class="scrollable-content">
-        <!-- uTools 插件导入引导（MT Launcher 市场方向 A） -->
-        <UToolsImportCard />
-
         <div v-if="isLoading" class="loading-state">
           <div class="loading-spinner"></div>
           <span>加载中...</span>

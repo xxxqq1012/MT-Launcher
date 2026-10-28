@@ -195,7 +195,7 @@ export class PluginInstallerAPI {
         success: true,
         pluginInfo: {
           name: config.name,
-          title: config.title || config.name,
+          title: config.title || config.pluginName || config.name,
           version: config.version || '未知',
           description: config.description || '',
           author: config.author || '未知',
@@ -743,7 +743,7 @@ export class PluginInstallerAPI {
   ): any {
     return {
       name: config.name,
-      title: config.title,
+      title: config.title || config.pluginName || config.name,
       version: config.version,
       description: config.description || '',
       author: config.author || '',

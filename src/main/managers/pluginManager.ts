@@ -378,7 +378,7 @@ export class PluginManager {
           : 'open_source'
     this.mainWindow?.webContents.send('plugin-opened', {
       name: pluginConfig.name,
-      title: pluginConfig.title || pluginConfig.name,
+      title: pluginConfig.title || pluginConfig.pluginName || pluginConfig.name,
       logo: logoUrl,
       path: pluginPath,
       cmdName,
@@ -1954,7 +1954,7 @@ export class PluginManager {
         {
           width: windowWidth,
           height: viewHeight,
-          title: pluginConfig.title || pluginConfig.name,
+          title: pluginConfig.title || pluginConfig.pluginName || pluginConfig.name,
           logo: logoUrl,
           searchQuery: '',
           searchPlaceholder: '搜索...',
@@ -2054,7 +2054,7 @@ export class PluginManager {
         {
           width: windowWidth,
           height: viewHeight,
-          title: pluginConfig.title || pluginConfig.name,
+          title: pluginConfig.title || pluginConfig.pluginName || pluginConfig.name,
           logo: cached.logo,
           searchQuery: cached.subInputValue || '',
           searchPlaceholder: cached.subInputPlaceholder || '搜索...',

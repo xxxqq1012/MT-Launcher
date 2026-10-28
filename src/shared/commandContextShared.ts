@@ -44,7 +44,7 @@ export interface OverCmdLike {
 export interface FilesCmdLike {
   type: 'files'
   label?: string
-  fileType?: 'file' | 'directory'
+  fileType?: 'file' | 'directory' | 'all'
   extensions?: string[]
   match?: string
   minLength?: number

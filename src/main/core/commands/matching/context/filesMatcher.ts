@@ -23,8 +23,8 @@ export class FilesContextMatcher implements ContextMatcher<FilesCmdLike, RegExp 
       minLength: 'number',
       maxLength: 'number'
     })
-    if (rule.fileType !== undefined && !['file', 'directory'].includes(rule.fileType)) {
-      throw new InvalidContextRuleError('fileType 应为 file 或 directory')
+    if (rule.fileType !== undefined && !['file', 'directory', 'all'].includes(rule.fileType)) {
+      throw new InvalidContextRuleError('fileType 应为 file、directory 或 all')
     }
     return compileRulePattern(rule.match, { allowLiteral: true })
   }

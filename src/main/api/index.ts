@@ -57,7 +57,12 @@ import translationManager from '../core/translationManager'
 import { initializeCommandService, getCommandService } from '../core/commands/runtime'
 import { COMMAND_ALIASES_KEY } from '../../shared/commandShared'
 import { ENABLED_MAIN_PUSH_PLUGINS_KEY, normalizeConfigList } from '../../shared/pluginSettings'
-import { importUToolsPlugins, shouldImportUToolsPlugins } from '../core/utoolsCompat/utoolsImporter'
+import {
+  importUToolsPlugins,
+  shouldImportUToolsPlugins,
+  getUToolsPluginsDir
+} from '../core/utoolsCompat/utoolsImporter'
+import { physicalFs } from '../utils/physicalFs'
 
 /**
  * 快捷键触发时携带的文件输入
@@ -296,6 +301,28 @@ class APIManager {
     // 系统设置 API
     ipcMain.handle('get-system-settings', () => systemSettingsAPI.getSystemSettings())
     ipcMain.handle('is-windows', () => systemSettingsAPI.isWindows())
+
+    // uTools 插件导入引导（市场方向 A：引导导入已装 uTools 插件）
+    ipcMain.handle('mtools-check-utools-plugins', () => {
+      const utoolsDir = getUToolsPluginsDir()
+      const dirExists = !!utoolsDir && physicalFs.existsSync(utoolsDir)
+      const asarFiles = dirExists
+        ? physicalFs.readdirSync(utoolsDir).filter((f) => f.toLowerCase().endsWith('.asar'))
+        : []
+      const installed: any[] = databaseAPI.dbGet('plugins') || []
+      const importedCount = installed.filter((p) =>
+        String(p.path || '').includes('.ztools\\plugins\\')
+      ).length
+      return {
+        utoolsInstalled: dirExists,
+        available: asarFiles.length,
+        imported: importedCount
+      }
+    })
+    ipcMain.handle('mtools-import-utools-plugins', async () => {
+      await this.adoptUToolsPlugins()
+      return { done: true }
+    })
 
     // 打开插件开发者工具
     ipcMain.handle('open-plugin-devtools', async () => {

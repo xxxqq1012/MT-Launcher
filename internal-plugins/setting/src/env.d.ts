@@ -40,6 +40,14 @@ declare global {
         dbPut: (key: string, data: any) => Promise<any>
         dbGet: (key: string) => Promise<any>
 
+        // uTools 插件导入引导（MT Launcher 市场方向 A）
+        mtoolsCheckUToolsPlugins: () => Promise<{
+          utoolsInstalled: boolean
+          available: number
+          imported: number
+        }>
+        mtoolsImportUToolsPlugins: () => Promise<{ done: boolean }>
+
         // 插件管理
         getPlugins: () => Promise<
           Array<{

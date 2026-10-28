@@ -49,6 +49,7 @@ import pluginFFmpegAPI from './plugin/ffmpeg'
 
 import httpServer from '../core/httpServer'
 import mcpServer from '../core/mcpServer'
+import { recognizePng } from '../core/ocr/paddleOcrService'
 import providerManager from '../core/provider/providerManager'
 import { startProviderBridgeHost } from '../core/provider/providerBridgeHost'
 import { runStartupDataMigrations } from '../core/startupDataMigrations'
@@ -328,6 +329,23 @@ class APIManager {
         Array.isArray(selected) && selected.length > 0 ? selected : undefined
       )
       return { done: true }
+    })
+
+    // 截图识别：本地 PaddleOCR（接收 PNG dataURL，返回识别文本）
+    ipcMain.handle('mtools-ocr-recognize', async (_event, imageDataUrl?: string) => {
+      if (typeof imageDataUrl !== 'string' || !imageDataUrl.startsWith('data:image')) {
+        return { success: false, error: '无效图片数据' }
+      }
+      try {
+        const base64 = imageDataUrl.slice(imageDataUrl.indexOf(',') + 1)
+        const buf = Buffer.from(base64, 'base64')
+        if (buf.length === 0) return { success: false, error: '图片为空' }
+        const text = await recognizePng(buf)
+        return { success: true, text }
+      } catch (error) {
+        console.error('[OcrService] 识别失败:', error)
+        return { success: false, error: error instanceof Error ? error.message : '识别失败' }
+      }
     })
 
     // 打开插件开发者工具

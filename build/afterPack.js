@@ -124,6 +124,28 @@ async function prunePlatformSpecificRuntimeFiles(context) {
     }
     console.log(`已保留 uiohook 预编译模块: ${keepPrebuild}`)
   }
+
+  // onnxruntime-node 仅保留当前平台/架构的二进制（其余平台 dll/so/dylib 合计约 130MB）。
+  const ortBinPath = path.join(unpackedPath, 'node_modules', 'onnxruntime-node', 'bin', 'napi-v6')
+  if (await pathExists(ortBinPath)) {
+    const keepOrt = platformPrefix === 'win32' ? 'win32' : platformPrefix
+    const ortPlatformDirs = await fs.readdir(ortBinPath)
+    for (const p of ortPlatformDirs) {
+      if (p !== keepOrt) {
+        await remove(path.join(ortBinPath, p))
+        continue
+      }
+      // 平台目录内只保留当前架构
+      const ortArchDir = path.join(ortBinPath, p)
+      const ortArchDirs = await fs.readdir(ortArchDir)
+      for (const a of ortArchDirs) {
+        if (a !== archName) {
+          await remove(path.join(ortArchDir, a))
+        }
+      }
+    }
+    console.log(`已裁剪 onnxruntime 二进制，仅保留 ${platformPrefix}/${archName}`)
+  }
 }
 
 /**
@@ -271,7 +293,7 @@ module.exports = async function (context) {
   // 复制内置插件
   console.log('\n开始复制内置插件...')
   const internalPluginsDir = path.resolve(__dirname, '../internal-plugins')
-  const pluginNames = ['setting', 'system'] // 内置插件列表
+  const pluginNames = ['setting', 'system', 'screen-ocr'] // 内置插件列表
 
   try {
     let resourcesPath = ''

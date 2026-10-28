@@ -2291,3 +2291,15 @@ if (!window.utools) {
   }
   window.utools = __uShim
 }
+
+// MT Launcher 截图识别：本地 PaddleOCR（主进程 mtools-ocr-recognize）。
+// 内置插件 screen-ocr 与主窗口均可调用。
+try {
+  if (window.ztools && typeof window.ztools.ocrRecognize !== 'function') {
+    window.ztools.ocrRecognize = async function (imageDataUrl) {
+      return await electron.ipcRenderer.invoke('mtools-ocr-recognize', imageDataUrl)
+    }
+  }
+} catch (__ocrErr) {
+  console.warn('[Preload] ocrRecognize 注入失败:', __ocrErr)
+}

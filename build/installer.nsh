@@ -4,6 +4,7 @@
 !ifndef MTL_DATA_PAGE_INCLUDED
 !define MTL_DATA_PAGE_INCLUDED
 !include "nsDialogs.nsh"
+!include "MUI2.nsh"
 
 Var MtlDataDialog
 Var MtlDataEdit
@@ -52,7 +53,7 @@ Function MtlDataPageLeave
   StrCpy $MtlDataPath "$MtlDataPath"
 FunctionEnd
 
-!macroend
+!endif
 
 !macro customInstall
   Delete "$INSTDIR\ztools-agent.exe"

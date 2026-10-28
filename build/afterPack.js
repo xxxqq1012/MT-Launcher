@@ -343,6 +343,16 @@ module.exports = async function (context) {
         }
       }
 
+      // 额外复制插件根目录下的数据目录（如 OCR 模型），这些目录不在 dist/public 内
+      for (const extraDir of ['models']) {
+        const extraSrc = path.join(pluginSrcDir, extraDir)
+        if (await pathExists(extraSrc)) {
+          const dest = path.join(pluginDestDir, extraDir)
+          await copy(extraSrc, dest)
+          console.log(`  已复制 ${extraDir}/ 目录内容到: ${pluginDestDir}`)
+        }
+      }
+
       console.log(`  ✅ 插件 ${pluginName} 复制完成`)
     }
 

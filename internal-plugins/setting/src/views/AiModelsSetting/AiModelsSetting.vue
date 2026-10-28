@@ -329,7 +329,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="provider-list">
-          <article v-if="officialProvider" class="card provider-item official-provider">
+          <article v-if="false" class="card provider-item official-provider">
             <header class="provider-header official-provider-header">
               <div class="provider-identity">
                 <div class="official-title-row">

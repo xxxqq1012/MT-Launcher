@@ -179,11 +179,6 @@ const homeRoutes: MenuRouterItemType[] = [
     }
   },
   {
-    path: '/account',
-    name: 'Account',
-    component: () => import('@/views/AccountSetting/AccountSetting.vue')
-  },
-  {
     path: '/notifications',
     name: 'Notifications',
     component: () => import('@/views/NotificationCenter/NotificationCenter.vue')

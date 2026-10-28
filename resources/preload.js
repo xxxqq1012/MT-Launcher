@@ -2284,5 +2284,10 @@ if (!window.utools) {
   __uShim.getAppVersion = function () {
     return '99.0.0'
   }
+  // getAppName 决定 IS_APP_ENTERPRISE 判定（everythingfind: "uTools"!==getAppName() 即企业版，
+  // 企业版只找外部 Everything.exe 不自启内置，导致永远"开启中..."）。覆盖为 "uTools" 走个人版分支。
+  __uShim.getAppName = function () {
+    return 'uTools'
+  }
   window.utools = __uShim
 }

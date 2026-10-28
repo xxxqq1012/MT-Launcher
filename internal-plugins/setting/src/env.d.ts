@@ -45,8 +45,18 @@ declare global {
           utoolsInstalled: boolean
           available: number
           imported: number
+          plugins: Array<{
+            installId: string
+            asarPath: string
+            name: string
+            version: string
+            title: string
+            description: string
+            adopted: boolean
+            adoptedVersion?: string
+          }>
         }>
-        mtoolsImportUToolsPlugins: () => Promise<{ done: boolean }>
+        mtoolsImportUToolsPlugins: (selected?: string[]) => Promise<{ done: boolean }>
 
         // 插件管理
         getPlugins: () => Promise<

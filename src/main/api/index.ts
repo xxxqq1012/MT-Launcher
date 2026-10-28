@@ -60,7 +60,8 @@ import { ENABLED_MAIN_PUSH_PLUGINS_KEY, normalizeConfigList } from '../../shared
 import {
   importUToolsPlugins,
   shouldImportUToolsPlugins,
-  getUToolsPluginsDir
+  getUToolsPluginsDir,
+  listUToolsPlugins
 } from '../core/utoolsCompat/utoolsImporter'
 import { physicalFs } from '../utils/physicalFs'
 
@@ -261,9 +262,9 @@ class APIManager {
    * 实体复制到插件根目录后，逐个走 adoptExistingEntity 的官方登记链路
    * （校验 plugin.json、写入注册表、通知插件列表刷新）。
    */
-  private async adoptUToolsPlugins(): Promise<void> {
+  private async adoptUToolsPlugins(selectedInstallIds?: string[]): Promise<void> {
     try {
-      const { imported, alreadyExists, failed } = await importUToolsPlugins()
+      const { imported, alreadyExists, failed } = await importUToolsPlugins(selectedInstallIds)
       const entities = [...imported, ...alreadyExists]
       if (entities.length === 0) {
         console.log('[UToolsCompat] 无 uTools 插件实体需要登记')
@@ -306,21 +307,26 @@ class APIManager {
     ipcMain.handle('mtools-check-utools-plugins', () => {
       const utoolsDir = getUToolsPluginsDir()
       const dirExists = !!utoolsDir && physicalFs.existsSync(utoolsDir)
-      const asarFiles = dirExists
-        ? physicalFs.readdirSync(utoolsDir).filter((f) => f.toLowerCase().endsWith('.asar'))
-        : []
       const installed: any[] = databaseAPI.dbGet('plugins') || []
-      const importedCount = installed.filter((p) =>
-        String(p.path || '').includes('.ztools\\plugins\\')
-      ).length
+      const adoptedByName = new Set<string>()
+      const adoptedVersionBy = new Map<string, string>()
+      for (const p of installed) {
+        if (!p?.name) continue
+        adoptedByName.add(p.name)
+        if (p.version) adoptedVersionBy.set(p.name, String(p.version))
+      }
+      const plugins = dirExists ? listUToolsPlugins(adoptedByName, adoptedVersionBy) : []
       return {
         utoolsInstalled: dirExists,
-        available: asarFiles.length,
-        imported: importedCount
+        available: plugins.length,
+        imported: plugins.filter((p) => p.adopted).length,
+        plugins
       }
     })
-    ipcMain.handle('mtools-import-utools-plugins', async () => {
-      await this.adoptUToolsPlugins()
+    ipcMain.handle('mtools-import-utools-plugins', async (_event, selected?: string[]) => {
+      await this.adoptUToolsPlugins(
+        Array.isArray(selected) && selected.length > 0 ? selected : undefined
+      )
       return { done: true }
     })
 

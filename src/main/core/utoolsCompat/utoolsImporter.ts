@@ -29,6 +29,20 @@ export interface UToolsImportResult {
   failed: string[]
 }
 
+/** uTools 源插件信息（供设置页导入面板展示与勾选） */
+export interface UToolsPluginInfo {
+  installId: string
+  asarPath: string
+  name: string
+  version: string
+  title: string
+  description: string
+  /** 同名插件是否已在 MT Launcher 登记 */
+  adopted: boolean
+  /** 已登记版本的版本号（adopted 时有效） */
+  adoptedVersion?: string
+}
+
 export function getUToolsPluginsDir(): string {
   if (process.env.UTOOLS_PLUGINS_DIR) return process.env.UTOOLS_PLUGINS_DIR
   if (process.platform === 'win32') {
@@ -51,7 +65,47 @@ export function readUToolsPluginJson(asarPath: string): any | null {
   }
 }
 
-export async function importUToolsPlugins(): Promise<UToolsImportResult> {
+/**
+ * 扫描 uTools 源插件目录，读取每个 asar 的 plugin.json 并附带登记状态。
+ * @param adoptedByName 已登记插件名集合（可由调用方传入避免反向依赖 database）
+ */
+export function listUToolsPlugins(
+  adoptedByName?: Set<string>,
+  adoptedVersionBy?: Map<string, string>
+): UToolsPluginInfo[] {
+  const utoolsDir = getUToolsPluginsDir()
+  if (!utoolsDir || !physicalFs.existsSync(utoolsDir)) return []
+
+  const asarFiles = physicalFs
+    .readdirSync(utoolsDir)
+    .filter((f) => f.toLowerCase().endsWith('.asar'))
+    .sort()
+
+  const plugins: UToolsPluginInfo[] = []
+  for (const file of asarFiles) {
+    const srcAsar = path.join(utoolsDir, file)
+    const config = readUToolsPluginJson(srcAsar)
+    if (!config?.name) continue
+    const name = String(config.name).replace(/[\\/:*?"<>|]/g, '_')
+    const version = config.version ? String(config.version) : '0.0.0'
+    const adopted = adoptedByName?.has(name) ?? false
+    plugins.push({
+      installId: path.basename(file, '.asar').slice(0, 8),
+      asarPath: srcAsar,
+      name,
+      version,
+      title: typeof config.title === 'string' && config.title ? config.title : name,
+      description: typeof config.description === 'string' ? config.description : '',
+      adopted,
+      adoptedVersion: adopted ? adoptedVersionBy?.get(name) : undefined
+    })
+  }
+  return plugins
+}
+
+export async function importUToolsPlugins(
+  selectedInstallIds?: string[]
+): Promise<UToolsImportResult> {
   const result: UToolsImportResult = { imported: [], alreadyExists: [], failed: [] }
   const utoolsDir = getUToolsPluginsDir()
   if (!utoolsDir || !physicalFs.existsSync(utoolsDir)) {
@@ -68,6 +122,10 @@ export async function importUToolsPlugins(): Promise<UToolsImportResult> {
     .sort()
 
   for (const file of asarFiles) {
+    // 勾选导入：仅处理选中的 installId
+    const installId = path.basename(file, '.asar').slice(0, 8)
+    if (selectedInstallIds && !selectedInstallIds.includes(installId)) continue
+
     const srcAsar = path.join(utoolsDir, file)
     const config = readUToolsPluginJson(srcAsar)
     if (!config?.name) {
@@ -77,7 +135,6 @@ export async function importUToolsPlugins(): Promise<UToolsImportResult> {
     }
     const name = String(config.name).replace(/[\\/:*?"<>|]/g, '_')
     const version = config.version ? String(config.version) : '0.0.0'
-    const installId = path.basename(file, '.asar').slice(0, 8)
     const destAsar = path.join(pluginsRoot, `${name}-${version}-${installId}.asar`)
 
     if (physicalFs.existsSync(destAsar)) {

@@ -14,10 +14,6 @@ export interface ServerUpdateInfo {
   publishedAt: number
 }
 
-interface ServerUpdateResponse {
-  update: ServerUpdateInfo | null
-}
-
 interface ServerDownloadsResponse {
   version: string
   systemType: string
@@ -53,19 +49,15 @@ export function getUpdateChannel(): UpdateChannel {
 
 /**
  * 从官方服务端执行一次主动更新检查。
+ *
+ * MT Launcher v1：不接入 ZTools 官方更新目录（z-tools.top 属上游服务，其目录会
+ * 向本应用返回 ZTools 上游版本并弹"需要更新 ZTools"提示）。故此处直接短路为
+ * "无可用更新"。自有版本发布后，更新由 electron-updater 走 GitHub Releases
+ * （app-update.yml / dev-app-update.yml → xxxqq1012/mTools）提供。
  * @returns 服务端返回的最新版本信息；没有适用版本时为 null。
  */
 export async function fetchLatestServerUpdate(): Promise<ServerUpdateInfo | null> {
-  const query = new URLSearchParams({
-    systemType: getUpdateSystemType(),
-    currentVersion: app.getVersion(),
-    updateChannel: getUpdateChannel(),
-    deviceId: pluginDeviceAPI.getDeviceIdPublic()
-  })
-  const response = await httpRequest(
-    `${OFFICIAL_SERVER_HTTP_URL}/api/updates/latest?${query.toString()}`
-  )
-  return (response.data as ServerUpdateResponse)?.update ?? null
+  return null
 }
 
 /**

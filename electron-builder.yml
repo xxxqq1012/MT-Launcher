@@ -1,9 +1,9 @@
-appId: top.z-tools
-productName: ZTools
+appId: com.mtlauncher.app
+productName: MT Launcher
 publish:
   provider: github
-  owner: ZToolsCenter
-  repo: ZTools
+  owner: xxxqq1012
+  repo: mTools
 directories:
   buildResources: build
 files:
@@ -36,12 +36,12 @@ asarUnpack:
   - '**/node_modules/@img/**/*'
 fileAssociations:
   - ext: zpx
-    name: ZTools Plugin
-    description: ZTools Plugin Package
+    name: MT Launcher Plugin
+    description: MT Launcher Plugin Package
     role: Viewer
 win:
   compression: maximum
-  executableName: ZTools
+  executableName: MTLauncher
   artifactName: ${name}-${version}-${os}-${arch}.${ext}
   target:
     - target: nsis

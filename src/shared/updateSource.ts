@@ -1,4 +1,4 @@
-export const GITHUB_REPOSITORY_URL = 'https://github.com/ZToolsCenter/ZTools'
+export const GITHUB_REPOSITORY_URL = 'https://github.com/xxxqq1012/mTools'
 export const GITHUB_RELEASES_URL = `${GITHUB_REPOSITORY_URL}/releases`
 export const GITHUB_LATEST_RELEASE_URL = `${GITHUB_RELEASES_URL}/latest`
 

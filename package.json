@@ -1,16 +1,16 @@
 {
-  "name": "ZTools",
-  "version": "3.2.0",
-  "description": "ZTools",
+  "name": "mt-launcher",
+  "version": "0.1.0",
+  "description": "MT Launcher - uTools 平替启动器",
   "main": "./out/main/index.js",
-  "author": "ZToolsCenter",
-  "homepage": "https://github.com/ZToolsCenter/ZTools",
+  "author": "xxxqq1012",
+  "homepage": "https://github.com/xxxqq1012/mTools",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ZToolsCenter/ZTools.git"
+    "url": "https://github.com/xxxqq1012/mTools.git"
   },
   "bugs": {
-    "url": "https://github.com/ZToolsCenter/ZTools/issues"
+    "url": "https://github.com/xxxqq1012/mTools/issues"
   },
   "license": "MIT",
   "scripts": {

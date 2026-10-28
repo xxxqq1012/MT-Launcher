@@ -44,7 +44,7 @@ async function handleCheckUpdate(): Promise<void> {
     const result = await window.ztools.internal.updaterCheckUpdate()
     if (result.migrationRequired) {
       const shouldOpenRelease = await confirm({
-        title: '需要更新 ZTools',
+        title: '需要更新 MT Launcher',
         message:
           '当前版本使用的是较早的更新方式，请安装一次最新完整版本。您的数据、设置和插件都会保留。',
         type: 'info',
@@ -80,7 +80,7 @@ function openGithub(): void {
 }
 
 function openSponsor(): void {
-  window.ztools.shellOpenExternal('https://afdian.com/a/ZTools')
+  window.ztools.shellOpenExternal('https://github.com/xxxqq1012/mTools')
 }
 
 async function loadAutoCheckSetting(): Promise<void> {
@@ -205,11 +205,11 @@ async function handleReceiveBetaUpdatesChange(): Promise<void> {
     <div class="about-container">
       <!-- Logo -->
       <div class="about-logo">
-        <img src="/logo.png" alt="ZTools" draggable="false" />
+        <img src="/logo.png" alt="MT Launcher" draggable="false" />
       </div>
 
       <!-- 应用名称 -->
-      <h1 class="about-title">ZTools</h1>
+      <h1 class="about-title">MT Launcher</h1>
 
       <!-- 版本号 -->
       <div class="about-version">v{{ appVersion }}</div>
@@ -422,7 +422,7 @@ async function handleReceiveBetaUpdatesChange(): Promise<void> {
 
       <!-- 版权信息 -->
       <div class="about-copyright">
-        Copyright &copy; 2025-{{ currentYear }} ZTools. All rights reserved.
+        Copyright &copy; 2025-{{ currentYear }} MT Launcher. All rights reserved.
       </div>
     </div>
   </div>

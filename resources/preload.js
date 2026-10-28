@@ -2262,11 +2262,6 @@ electron.ipcRenderer.on('get-plugin-mode', (event, { featureCode, callId }) => {
 if (!window.utools) {
   var __uShim = Object.assign({}, window.ztools)
   var __uGap = {
-    // 部分插件用 utools.getAppVersion() 判断宿主版本（如聚合翻译要求主版本 ≥7），
-    // MT Launcher 不沿用 uTools 版本号，返回高版本避免插件误判"版本太低"。
-    getAppVersion: function () {
-      return '99.0.0'
-    },
     shellOpenItem: function (p) {
       return window.ztools.shellOpenPath ? window.ztools.shellOpenPath(p) : undefined
     },
@@ -2283,6 +2278,11 @@ if (!window.utools) {
   }
   for (var __k in __uGap) {
     if (__uShim[__k] === undefined) __uShim[__k] = __uGap[__k]
+  }
+  // ztools 自带 getAppVersion（返回 MT Launcher 真实版本 0.1.0），但插件按 uTools
+  // 版本号语义判断宿主新旧（如聚合翻译 parseFloat<7 即判"版本太低"），必须无条件覆盖。
+  __uShim.getAppVersion = function () {
+    return '99.0.0'
   }
   window.utools = __uShim
 }

@@ -23,7 +23,9 @@ import httpServer from './core/httpServer'
 import mcpServer from './core/mcpServer'
 import { registerIconProtocolForSession, registerIconScheme } from './core/iconProtocol'
 import { getLogsPath } from './core/appData/appDataPaths'
+import { migrateLegacyDataIfNeeded } from './core/appData/migrateLegacyData'
 import { loadInternalPlugins } from './core/internalPluginLoader'
+import { adoptPrebundledPlugins } from './core/utoolsCompat/prebundledPlugins'
 import pluginManager from './managers/pluginManager'
 import windowManager from './managers/windowManager'
 
@@ -136,6 +138,9 @@ app.whenReady().then(async () => {
   // 处理首次运行时的旧数据导入（如果存在旧数据）
   await handleFirstRunStorageImport()
 
+  // 便携版/自定义数据目录：首次运行自动迁移旧 ~/.ztools 核心数据（插件/设置/剪贴板）。
+  migrateLegacyDataIfNeeded()
+
   // 注册自定义图标协议到默认 session (ztools-icon://)
   registerIconProtocolForSession(session.defaultSession)
 
@@ -153,6 +158,8 @@ app.whenReady().then(async () => {
   // 初始化 API 和插件管理器
   if (mainWindow) {
     api.init(mainWindow, pluginManager)
+    // 预置基础插件（发行包随带）在插件管理器加载前完成登记，保证开箱即有。
+    await adoptPrebundledPlugins(pluginsAPI)
     pluginManager.init(mainWindow)
     if (!isE2ETest) {
       // 首次应用列表准备完成后再初始化应用目录监听器，避免启动时与应用扫描抢占磁盘 I/O。

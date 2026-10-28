@@ -19,6 +19,7 @@ files:
   - '!AGENTS.md'
   - '!docs/**'
   - '!tests/**'
+  - '!dist-plugins/**'
   - '!updater/**'
   - '!ztools-api-types/**'
   - '!ztools-plugin-cli/**'
@@ -34,6 +35,11 @@ asarUnpack:
   - resources/**
   - '**/node_modules/sharp/**/*'
   - '**/node_modules/@img/**/*'
+extraResources:
+  - from: dist-plugins
+    to: dist-plugins
+    filter:
+      - '**/*'
 fileAssociations:
   - ext: zpx
     name: MT Launcher Plugin

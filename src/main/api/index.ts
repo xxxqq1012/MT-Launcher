@@ -57,6 +57,7 @@ import translationManager from '../core/translationManager'
 import { initializeCommandService, getCommandService } from '../core/commands/runtime'
 import { COMMAND_ALIASES_KEY } from '../../shared/commandShared'
 import { ENABLED_MAIN_PUSH_PLUGINS_KEY, normalizeConfigList } from '../../shared/pluginSettings'
+import { importUToolsPlugins, shouldImportUToolsPlugins } from '../core/utoolsCompat/utoolsImporter'
 
 /**
  * 快捷键触发时携带的文件输入
@@ -110,6 +111,11 @@ class APIManager {
     appsAPI.init(mainWindow, pluginManager)
     appsAPI.setShowWindowCallback(() => windowManager.showWindow())
     pluginsAPI.init(mainWindow, pluginManager)
+    // mTools: 启动参数 --import-utools（或 ZTOOLS_IMPORT_UTOOLS=1）时，
+    // 把 uTools 已装插件 asar 导入插件根目录并登记进注册表（T04 compat 骨架）。
+    if (shouldImportUToolsPlugins()) {
+      void this.adoptUToolsPlugins()
+    }
     pluginsAPI.setCommandsCacheInvalidator(() => appsAPI.invalidateCommandsCache(false))
     windowAPI.init(mainWindow)
     settingsAPI.init(mainWindow, pluginManager)
@@ -242,6 +248,44 @@ class APIManager {
     settingsAPI.setGlobalShortcutHandler((target, context) =>
       this.handleGlobalShortcut(target, context)
     )
+  }
+
+  /**
+   * 导入 uTools 已装插件并登记进插件注册表（T04 compat 骨架）。
+   * 仅在启动参数 --import-utools / ZTOOLS_IMPORT_UTOOLS=1 时执行一次；
+   * 实体复制到插件根目录后，逐个走 adoptExistingEntity 的官方登记链路
+   * （校验 plugin.json、写入注册表、通知插件列表刷新）。
+   */
+  private async adoptUToolsPlugins(): Promise<void> {
+    try {
+      const { imported, alreadyExists, failed } = await importUToolsPlugins()
+      const entities = [...imported, ...alreadyExists]
+      if (entities.length === 0) {
+        console.log('[UToolsCompat] 无 uTools 插件实体需要登记')
+        return
+      }
+      let adoptedNew = 0
+      for (const entityPath of entities) {
+        try {
+          const result = await pluginsAPI.installer.adoptExistingEntity(entityPath)
+          if (result?.success) {
+            if (result.adopted) adoptedNew++
+            console.log(
+              `[UToolsCompat] 登记完成: ${result.plugin?.name} (${result.adopted ? '新登记' : '已存在'})`
+            )
+          } else {
+            console.warn(`[UToolsCompat] 登记失败: ${entityPath}`, result?.error || '未知错误')
+          }
+        } catch (error) {
+          console.warn(`[UToolsCompat] 登记异常: ${entityPath}`, error)
+        }
+      }
+      console.log(
+        `[UToolsCompat] 本次导入完成: 新增登记 ${adoptedNew} / 跳过 ${failed.length} 失败`
+      )
+    } catch (error) {
+      console.error('[UToolsCompat] uTools 插件导入流程异常:', error)
+    }
   }
 
   /**

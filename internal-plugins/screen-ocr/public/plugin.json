@@ -1,9 +1,9 @@
 {
   "name": "screen-ocr",
   "title": "截图识别",
-  "description": "MT Launcher 内置截图文字识别（本地 PaddleOCR，离线运行，无需账号），支持识别后自动跳转翻译",
+  "description": "MT Launcher 内置截图文字识别（本地 PaddleOCR，离线运行，无需账号），支持识别后自动跳转翻译、截图悬浮",
   "author": "MT Launcher",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "logo": "icon.png",
   "main": "index.html",
   "pluginSetting": {
@@ -21,6 +21,12 @@
       "explain": "框选屏幕区域识别文字，并自动跳转到聚合翻译进行翻译",
       "icon": "icon.png",
       "cmds": ["截图识别并翻译", "截图翻译", "OCR翻译"]
+    },
+    {
+      "code": "screen-ocr-float",
+      "explain": "框选屏幕区域后将截图悬浮显示，可随时识别文字、翻译或复制图片",
+      "icon": "icon.png",
+      "cmds": ["截图悬浮", "悬浮截图"]
     }
   ]
 }

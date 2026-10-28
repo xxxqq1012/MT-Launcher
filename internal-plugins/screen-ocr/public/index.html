@@ -47,8 +47,14 @@
         background: #f5f3ff;
         border-color: #ddd6fe;
       }
+      .header .badge.float {
+        color: #b45309;
+        background: #fffbeb;
+        border-color: #fde68a;
+      }
       .actions {
         display: flex;
+        flex-wrap: wrap;
         gap: 8px;
         padding: 12px 16px;
       }
@@ -74,6 +80,22 @@
       }
       .btn.primary:hover {
         background: #1d4ed8;
+      }
+      .btn.green {
+        background: #059669;
+        border-color: #059669;
+        color: #fff;
+      }
+      .btn.green:hover {
+        background: #047857;
+      }
+      .btn.purple {
+        background: #7c3aed;
+        border-color: #7c3aed;
+        color: #fff;
+      }
+      .btn.purple:hover {
+        background: #6d28d9;
       }
       .btn:disabled {
         opacity: 0.55;
@@ -113,6 +135,38 @@
         outline: 2px solid #93c5fd;
         border-color: #3b82f6;
       }
+      .preview-wrap {
+        flex: 1;
+        padding: 0 16px 12px;
+        display: none;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 0;
+      }
+      .preview-wrap.show {
+        display: flex;
+      }
+      .preview-box {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+      }
+      .preview-box img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+      .preview-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
       .empty {
         color: #9ca3af;
         display: flex;
@@ -135,13 +189,23 @@
       <span class="title" id="title">截图识别</span>
       <span class="badge" id="badge">本地离线 · PaddleOCR</span>
     </div>
-    <div class="actions">
+    <div class="actions" id="normalActions">
       <button id="captureBtn" class="btn primary">框选截图识别</button>
       <button id="copyBtn" class="btn">复制结果</button>
       <button id="clearBtn" class="btn">清空</button>
     </div>
+    <div class="actions" id="floatActions" style="display: none">
+      <button id="floatCaptureBtn" class="btn primary">重新截图</button>
+      <button id="floatRecognizeBtn" class="btn green">识别文字</button>
+      <button id="floatTranslateBtn" class="btn purple">识别并翻译</button>
+      <button id="floatCopyBtn" class="btn">复制图片</button>
+      <button id="floatCloseBtn" class="btn">关闭</button>
+    </div>
     <div class="status" id="status">点击"框选截图识别"选择屏幕区域</div>
-    <div class="result-wrap">
+    <div class="preview-wrap" id="previewWrap">
+      <div class="preview-box"><img id="previewImg" alt="截图预览" /></div>
+    </div>
+    <div class="result-wrap" id="resultWrap">
       <textarea id="result" placeholder="识别结果将显示在这里"></textarea>
     </div>
     <div class="tip">识别在本地完成，图片不会上传到任何服务器。支持中文、英文与常用符号。</div>
@@ -155,18 +219,57 @@
         const status = document.getElementById('status')
         const titleEl = document.getElementById('title')
         const badgeEl = document.getElementById('badge')
+        const normalActions = document.getElementById('normalActions')
+        const floatActions = document.getElementById('floatActions')
+        const previewWrap = document.getElementById('previewWrap')
+        const previewImg = document.getElementById('previewImg')
+        const resultWrap = document.getElementById('resultWrap')
 
-        // 当前模式：false=仅识别，true=识别后自动翻译
-        let translateMode = false
+        // 当前模式：recognize=仅识别 / translate=识别并翻译 / float=截图悬浮
+        let mode = 'recognize'
+        let lastImage = ''
 
         function setBusy(busy, msg) {
           captureBtn.disabled = busy
           if (msg) status.textContent = msg
         }
 
-        // 识别完成后：若为翻译模式，自动跳转到聚合翻译
+        function applyMode(m) {
+          mode = m
+          if (m === 'translate') {
+            titleEl.textContent = '截图识别并翻译'
+            badgeEl.textContent = '本地识别 · 自动翻译'
+            badgeEl.classList.add('translate')
+            badgeEl.classList.remove('float')
+          } else if (m === 'float') {
+            titleEl.textContent = '截图悬浮'
+            badgeEl.textContent = '截图后悬浮 · 可识别/翻译'
+            badgeEl.classList.add('float')
+            badgeEl.classList.remove('translate')
+          } else {
+            titleEl.textContent = '截图识别'
+            badgeEl.textContent = '本地离线 · PaddleOCR'
+            badgeEl.classList.remove('translate', 'float')
+          }
+        }
+
+        function enterFloatLayout() {
+          normalActions.style.display = 'none'
+          floatActions.style.display = 'flex'
+          previewWrap.classList.add('show')
+          resultWrap.style.display = 'none'
+        }
+
+        function exitFloatLayout() {
+          normalActions.style.display = 'flex'
+          floatActions.style.display = 'none'
+          previewWrap.classList.remove('show')
+          resultWrap.style.display = 'flex'
+        }
+
+        // 识别完成后：翻译模式自动跳转聚合翻译
         function maybeTranslate(text) {
-          if (!translateMode || !text) return
+          if (mode !== 'translate' || !text) return
           status.textContent = '已识别，正在跳转到聚合翻译…'
           try {
             const ok = window.ztools.redirect(['聚合翻译', '翻译'], text)
@@ -202,6 +305,17 @@
             setBusy(false, '已取消截图，或当前环境不支持截图')
             return
           }
+          lastImage = image
+
+          if (mode === 'float') {
+            // 截图悬浮：展示图片预览，由用户决定后续动作
+            previewImg.src = image
+            enterFloatLayout()
+            status.textContent = '已截图悬浮，选择操作：识别文字 / 识别并翻译 / 复制图片'
+            return
+          }
+
+          // 识别 / 识别并翻译：直接进入识别
           setBusy(true, '正在识别文字…')
           status.textContent = '正在识别文字…'
           try {
@@ -209,7 +323,7 @@
             if (res && res.success) {
               result.value = res.text || ''
               if (res.text) {
-                status.textContent = translateMode ? '识别完成' : '识别完成'
+                status.textContent = '识别完成'
                 maybeTranslate(res.text)
               } else {
                 status.textContent = '未在所选区域识别到文字'
@@ -223,6 +337,89 @@
           }
           setBusy(false)
         }
+
+        // 悬浮模式：识别当前截图
+        async function floatRecognize() {
+          if (!lastImage) return
+          status.textContent = '正在识别文字…'
+          try {
+            const res = await window.ztools.ocrRecognize(lastImage)
+            if (res && res.success) {
+              result.value = res.text || ''
+              exitFloatLayout()
+              status.textContent = res.text ? '识别完成' : '未识别到文字'
+            } else {
+              status.textContent = '识别失败: ' + (res?.error || '未知错误')
+            }
+          } catch (e) {
+            console.error('[ScreenOcr] 识别调用失败:', e)
+            status.textContent = '识别调用失败: ' + (e && e.message ? e.message : '未知错误')
+          }
+        }
+
+        // 悬浮模式：识别并翻译
+        async function floatRecognizeTranslate() {
+          if (!lastImage) return
+          status.textContent = '正在识别文字…'
+          try {
+            const res = await window.ztools.ocrRecognize(lastImage)
+            if (res && res.success && res.text) {
+              result.value = res.text
+              exitFloatLayout()
+              maybeTranslate(res.text)
+            } else {
+              status.textContent =
+                res && res.success ? '未识别到文字' : '识别失败: ' + (res?.error || '未知错误')
+            }
+          } catch (e) {
+            console.error('[ScreenOcr] 识别调用失败:', e)
+            status.textContent = '识别调用失败: ' + (e && e.message ? e.message : '未知错误')
+          }
+        }
+
+        // 悬浮模式：复制图片
+        function floatCopy() {
+          if (!lastImage) return
+          if (typeof window.utools?.copyImage === 'function') {
+            window.utools.copyImage(lastImage)
+            status.textContent = '已复制图片到剪贴板'
+          } else if (navigator.clipboard && navigator.clipboard.write) {
+            const img = new Image()
+            img.onload = function () {
+              const canvas = document.createElement('canvas')
+              canvas.width = img.width
+              canvas.height = img.height
+              canvas.getContext('2d').drawImage(img, 0, 0)
+              canvas.toBlob(function (blob) {
+                navigator.clipboard
+                  .write([new ClipboardItem({ 'image/png': blob })])
+                  .then(function () {
+                    status.textContent = '已复制图片到剪贴板'
+                  })
+                  .catch(function () {
+                    status.textContent = '复制图片失败'
+                  })
+              }, 'image/png')
+            }
+            img.src = lastImage
+          }
+        }
+
+        function floatClose() {
+          lastImage = ''
+          previewImg.src = ''
+          exitFloatLayout()
+          status.textContent = '已关闭悬浮截图'
+        }
+
+        // 悬浮模式按钮
+        document.getElementById('floatCaptureBtn').addEventListener('click', doCapture)
+        document.getElementById('floatRecognizeBtn').addEventListener('click', floatRecognize)
+        document
+          .getElementById('floatTranslateBtn')
+          .addEventListener('click', floatRecognizeTranslate)
+        document.getElementById('floatCopyBtn').addEventListener('click', floatCopy)
+        document.getElementById('floatCloseBtn').addEventListener('click', floatClose)
 
         captureBtn.addEventListener('click', doCapture)
 
@@ -241,21 +438,27 @@
           status.textContent = '点击"框选截图识别"选择屏幕区域'
         })
 
-        // 识别进入的命令（uTools 兼容 API）
+        // 识别进入的命令（uTools 兼容 API）：每次进入都直接触发截图
         if (typeof window.utools?.onPluginEnter === 'function') {
           window.utools.onPluginEnter(function (info) {
-            if (info && info.code === 'screen-ocr-translate') {
-              translateMode = true
-              titleEl.textContent = '截图识别并翻译'
-              badgeEl.textContent = '本地识别 · 自动翻译'
-              badgeEl.classList.add('translate')
+            const code = info && info.code ? info.code : 'screen-ocr'
+            if (code === 'screen-ocr-translate') {
+              applyMode('translate')
               status.textContent = '截图识别后将自动跳转到聚合翻译'
+            } else if (code === 'screen-ocr-float') {
+              applyMode('float')
+              status.textContent = '框选截图后悬浮显示，可选择识别或翻译'
+            } else {
+              applyMode('recognize')
+              status.textContent = '正在截图…'
             }
+            // 每次进入都直接开始框选截图
+            setTimeout(doCapture, 60)
           })
+        } else {
+          // 无 onPluginEnter 兼容层时，页面加载后自动开始一次
+          setTimeout(doCapture, 300)
         }
-
-        // 页面加载后自动开始一次截图识别
-        setTimeout(doCapture, 300)
       })()
     </script>
   </body>

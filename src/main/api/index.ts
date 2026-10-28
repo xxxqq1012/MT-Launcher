@@ -39,6 +39,7 @@ import pluginScreenAPI from './plugin/screen'
 import pluginShellAPI from './plugin/shell'
 import pluginToastAPI from './plugin/toast'
 import pluginToolsAPI from './plugin/tools'
+import clipboardServicesAPI from './plugin/clipboardServices'
 import pluginUIAPI from './plugin/ui'
 import pluginUserAPI from './plugin/user'
 import pluginPaymentAPI from './plugin/payment'
@@ -108,6 +109,7 @@ class APIManager {
 
     // 初始化共享API
     databaseAPI.init(pluginManager)
+    clipboardServicesAPI.init()
     // 启动时统一迁移mac图标历史遗留数据
     runStartupDataMigrations()
     clipboardAPI.init()

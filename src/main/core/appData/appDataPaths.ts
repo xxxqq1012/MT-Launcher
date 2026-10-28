@@ -27,17 +27,39 @@ export interface ZToolsDataLayout {
 }
 
 /**
+ * 数据根目录引导配置文件名（位于可执行文件同目录，由安装器/设置写入）。
+ * 内容为纯文本路径（首行为数据根目录绝对路径），避免 JSON 转义问题。
+ */
+export const DATA_PATH_CONFIG_FILE = 'mt-data-path.txt'
+
+/**
  * 获取 ZTools 数据根目录，测试进程可通过显式配置隔离真实用户数据。
+ *
+ * 解析优先级（打包版）：
+ * 1. `options.dataRoot`（测试/调用方显式指定）
+ * 2. 环境变量 `ZTOOLS_DATA_ROOT`
+ * 3. 可执行文件同目录的 `mt-data-path.txt` 引导文件（安装器选择页 / 便携版配置写入）
+ * 4. 便携版默认：可执行文件同目录的 `data/`
+ * 5. 旧版默认：`~/.ztools`（开发模式与未配置的旧安装）
  *
  * @param options 数据目录解析选项。
  * @returns ZTools 数据根目录绝对路径。
  */
 export function getZToolsRoot(options: AppDataPathOptions = {}): string {
-  return (
-    options.dataRoot ||
-    process.env.ZTOOLS_DATA_ROOT ||
-    path.join(options.homeDir || os.homedir(), '.ztools')
-  )
+  if (options.dataRoot) return options.dataRoot
+  if (process.env.ZTOOLS_DATA_ROOT) return process.env.ZTOOLS_DATA_ROOT
+  if (app?.isPackaged) {
+    const exeDir = path.dirname(process.execPath)
+    const configPath = path.join(exeDir, DATA_PATH_CONFIG_FILE)
+    try {
+      const dataRoot = fs.readFileSync(configPath, 'utf8').trim()
+      if (dataRoot && path.isAbsolute(dataRoot)) return dataRoot
+    } catch {
+      // 无引导文件：便携版，走默认程序根目录 data/
+    }
+    return path.join(exeDir, 'data')
+  }
+  return path.join(options.homeDir || os.homedir(), '.ztools')
 }
 
 export function getLmdbRoot(options: AppDataPathOptions = {}): string {

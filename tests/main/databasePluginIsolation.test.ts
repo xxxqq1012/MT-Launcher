@@ -27,6 +27,9 @@ const mockPluginWindowManager = vi.hoisted(() => ({
 }))
 
 vi.mock('electron', () => ({
+  app: {
+    getPath: vi.fn()
+  },
   ipcMain: {
     on: vi.fn(),
     handle: vi.fn()

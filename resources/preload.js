@@ -2251,3 +2251,33 @@ electron.ipcRenderer.on('get-plugin-mode', (event, { featureCode, callId }) => {
     }
   })
 })()
+
+// ─────────────────────────────────────────────
+// mTools · uTools API 兼容别名（T05）
+// uTools 插件通过全局 utools 访问 API，ZTools 提供 window.ztools，
+// 二者 API 面基本对齐（ZTools 本身即按 uTools 平替设计）。
+// 将 utools 指向 ztools，并对低频缺口 API 提供空实现兜底，
+// 避免插件 preload 因 API 缺失抛 ReferenceError/TypeError 中断。
+// ─────────────────────────────────────────────
+if (!window.utools) {
+  var __uShim = Object.assign({}, window.ztools)
+  var __uGap = {
+    shellOpenItem: function (p) {
+      return window.ztools.shellOpenPath ? window.ztools.shellOpenPath(p) : undefined
+    },
+    fetchUserServerTemporaryToken: function () {
+      return Promise.resolve('')
+    },
+    fetchUserPayments: function () {
+      return Promise.resolve([])
+    },
+    openPayment: function () {},
+    openAccountPurchase: function () {},
+    onDbPull: function () {},
+    ubrowser: undefined
+  }
+  for (var __k in __uGap) {
+    if (__uShim[__k] === undefined) __uShim[__k] = __uGap[__k]
+  }
+  window.utools = __uShim
+}

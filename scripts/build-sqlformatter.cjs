@@ -31,6 +31,10 @@ async function main() {
     if (fs.existsSync(src)) fs.copyFileSync(src, path.join(BUILD_DIR, f))
   }
   fs.cpSync(path.join(SRC_DIR, 'assets'), path.join(BUILD_DIR, 'assets'), { recursive: true })
+  // 内置便携 JRE（unpacked 侧车，随插件分发，无需用户机器安装 Java）
+  if (fs.existsSync(path.join(SRC_DIR, 'jre'))) {
+    fs.cpSync(path.join(SRC_DIR, 'jre'), path.join(BUILD_DIR, 'jre'), { recursive: true })
+  }
   const engineFiles = fs
     .readdirSync(ENGINE_DIR)
     .filter((n) => !/\.(doc|bat)$/i.test(n) && n !== 'lib')
@@ -52,7 +56,7 @@ async function main() {
   // 2. 打包 asar（jar/lib/cfg 走 unpacked 侧车，供 java 子进程直接访问）
   fs.rmSync(TMP_ASAR, { force: true })
   await asar.createPackageWithOptions(BUILD_DIR, TMP_ASAR, {
-    unpack: '**/{wjz-sqlFormat-1.3.jar,**/lib/**,**/*.cfg}'
+    unpack: '**/{wjz-sqlFormat-1.3.jar,**/lib/**,**/*.cfg,**/jre/**}'
   })
   finalize()
 }

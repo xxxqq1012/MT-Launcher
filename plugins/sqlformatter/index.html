@@ -94,6 +94,11 @@
         overflow: auto;
         margin: 0 0 8px;
       }
+      .action-buttons {
+        display: flex;
+        gap: 8px;
+        margin-left: 8px;
+      }
     </style>
   </head>
   <body>
@@ -105,18 +110,6 @@
             <h1>SQL 格式化</h1>
             <p>本地处理，不上传 SQL</p>
           </div>
-        </div>
-        <div class="toolbar-actions">
-          <button id="pasteButton" class="button ghost" type="button" title="从剪贴板粘贴">
-            粘贴
-          </button>
-          <button id="clearButton" class="button ghost" type="button">清空</button>
-          <button id="formatButton" class="button primary" type="button" title="Ctrl + Enter">
-            格式化
-          </button>
-          <button id="settingsButton" class="button ghost" type="button" title="格式化配置">
-            配置
-          </button>
         </div>
       </header>
 
@@ -144,6 +137,18 @@
           <input id="denseOperatorsInput" type="checkbox" />
           <span>紧凑运算符</span>
         </label>
+        <div class="action-buttons">
+          <button id="pasteButton" class="button ghost" type="button" title="从剪贴板粘贴">
+            粘贴
+          </button>
+          <button id="clearButton" class="button ghost" type="button">清空</button>
+          <button id="formatButton" class="button primary" type="button" title="Ctrl + Enter">
+            格式化
+          </button>
+          <button id="settingsButton" class="button ghost" type="button" title="格式化配置">
+            配置
+          </button>
+        </div>
       </section>
 
       <section class="workspace">
@@ -267,18 +272,17 @@
             setStatus($('engineStatus'), '桥接不可用', false)
             return
           }
-          // 引擎状态
-          const diag = b.testEngine('select a,b from tab1 where a>1')
+          // 引擎状态（静态探测，不执行 java）
+          const diag = b.engineProbe()
           const lines = []
           lines.push(
             'Java: ' + (diag.java || '未找到') + (diag.javaFrom ? '（' + diag.javaFrom + '）' : '')
           )
           lines.push('引擎 jar: ' + (diag.jar || '未找到'))
-          lines.push('执行: ' + (diag.ran ? '成功' : '未执行'))
-          if (diag.error) lines.push('诊断: ' + diag.error)
-          setStatus($('engineStatus'), lines.join('\n'), diag.ran)
+          if (!diag.java) lines.push('诊断: 未找到 Java，请安装 JDK 8+ 或指定 java 路径')
+          setStatus($('engineStatus'), lines.join('\n'), !!diag.java)
           // Java 路径输入框
-          const settings = b.readEngineSettings()
+          const settings = b.readSettings()
           $('javaPathInput').value = settings && settings.javaPath ? settings.javaPath : ''
           // cfg 编辑器
           const cfg = b.readSqlConfigFile()
@@ -313,9 +317,9 @@
             const b = window.sqlFormatterBridge
             if (!b) return
             const val = $('javaPathInput').value.trim()
-            const settings = b.readEngineSettings() || {}
+            const settings = b.readSettings() || {}
             settings.javaPath = val || null
-            const ok = b.writeEngineSettings(settings)
+            const ok = b.writeSettings(settings)
             setStatus(
               $('javaPathStatus'),
               ok ? (val ? '已保存：' + val : '已清除，将自动探测') : '保存失败',
@@ -346,20 +350,17 @@
         }
 
         bindButtons()
-        // 首次进入时自动跑一次诊断并更新页面底栏提示（不打断格式化流程）
+        // 首次进入时静态探测引擎并更新页面底栏提示（不执行 java，不阻塞）
         try {
           const b = window.sqlFormatterBridge
-          if (b && typeof b.testEngine === 'function') {
+          if (b && typeof b.engineProbe === 'function') {
             setTimeout(() => {
-              const diag = b.testEngine('')
+              const diag = b.engineProbe()
               const st = document.getElementById('statusText')
-              if (st && diag && !diag.ran) {
-                st.textContent =
-                  'wjz 引擎不可用（' +
-                  (diag.error || '未知') +
-                  '），当前使用内置格式化，可点"配置"设置'
+              if (st && diag && !diag.java) {
+                st.textContent = 'wjz 引擎不可用（未找到 Java），当前使用内置格式化，可点"配置"设置'
               }
-            }, 400)
+            }, 300)
           }
         } catch (e) {}
       })()

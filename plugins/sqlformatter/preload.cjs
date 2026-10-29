@@ -45,12 +45,15 @@ function writeSettings(settings) {
   }
 }
 
-/** 探测可用的 java（优先级：用户指定 > PATH > JAVA_HOME > Oracle > Program Files\Java > DBeaver jre） */
+/** 探测可用的 java（优先级：内置 jre > 用户指定 > PATH > JAVA_HOME > Oracle > Program Files\Java > DBeaver jre） */
 function findJava(settings) {
+  const win = process.platform === 'win32'
+  const bundledJre = path.join(unpackedDir, 'jre', 'bin', win ? 'java.exe' : 'java')
+  if (fs.existsSync(bundledJre)) return bundledJre
+
   const userPath = settings?.javaPath
   if (userPath && fs.existsSync(userPath)) return userPath
 
-  const win = process.platform === 'win32'
   const candidates = []
   candidates.push('java')
   if (process.env.JAVA_HOME) {
@@ -103,25 +106,48 @@ function formatWithEngine(sqlText) {
     return null
   }
   try {
-    cp.execFileSync(
+    // wjz 引擎结果输出到 stdout（DBeaver 外部工具协议），execFileSync 默认捕获并返回
+    const stdout = cp.execFileSync(
       javaCmd,
       ['-Dfile.encoding=utf-8', '-jar', jar, '-filePath', tmpFile, '-fileEncoding', 'utf-8'],
-      { timeout: FORMAT_TIMEOUT, cwd: unpackedDir, windowsHide: true, stdio: 'ignore' }
+      { timeout: FORMAT_TIMEOUT, cwd: unpackedDir, windowsHide: true }
     )
-    let result = null
-    try {
-      result = fs.readFileSync(tmpFile, 'utf-8')
-    } catch {
-      result = null
-    }
-    if (!result || !String(result).trim() || String(result) === text) return null
-    return String(result)
+    const result = String(stdout || '')
+    if (!result.trim()) return null
+    return result
   } catch {
     return null
   } finally {
     try {
       fs.rmSync(tmpFile, { force: true })
     } catch {}
+  }
+}
+
+/** 静态引擎探测：不执行 java，仅检查路径可用性（快，供页面加载时提示） */
+function engineProbe() {
+  const settings = readSettings()
+  const win = process.platform === 'win32'
+  const bundledJre = path.join(unpackedDir, 'jre', 'bin', win ? 'java.exe' : 'java')
+  let java = null
+  let javaFrom = null
+  if (fs.existsSync(bundledJre)) {
+    java = bundledJre
+    javaFrom = '内置 JRE'
+  } else {
+    const userPath = settings?.javaPath
+    if (userPath && fs.existsSync(userPath)) {
+      java = userPath
+      javaFrom = '用户指定'
+    }
+  }
+  return {
+    java,
+    javaFrom,
+    jar: findJar(),
+    bundled: !!java,
+    settingsPath: path.join(unpackedDir, SETTINGS_NAME),
+    cfgPath: path.join(unpackedDir, CFG_NAME)
   }
 }
 
@@ -157,13 +183,13 @@ function testEngine(sqlText) {
     return diag
   }
   try {
-    cp.execFileSync(
+    const stdout = cp.execFileSync(
       javaCmd,
       ['-Dfile.encoding=utf-8', '-jar', jar, '-filePath', tmpFile, '-fileEncoding', 'utf-8'],
-      { timeout: FORMAT_TIMEOUT, cwd: unpackedDir, windowsHide: true, stdio: 'pipe' }
+      { timeout: FORMAT_TIMEOUT, cwd: unpackedDir, windowsHide: true }
     )
     diag.ran = true
-    diag.output = fs.readFileSync(tmpFile, 'utf-8')
+    diag.output = String(stdout || '')
   } catch (e) {
     diag.ran = false
     diag.error = '引擎执行失败: ' + (e && e.message ? e.message : String(e))
@@ -205,8 +231,9 @@ function readBundledConfigFile() {
 window.sqlFormatterBridge = Object.freeze({
   readClipboardText,
   formatWithEngine,
-  readEngineSettings,
-  writeEngineSettings,
+  readSettings,
+  writeSettings,
+  engineProbe,
   testEngine,
   readSqlConfigFile,
   writeSqlConfigFile,

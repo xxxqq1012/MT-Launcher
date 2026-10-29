@@ -368,7 +368,12 @@
           }
 
           if (mode === 'float') {
-            // 截图悬浮：创建贴屏置顶悬浮窗
+            // 截图悬浮：立即写入最新截图并让旧悬浮窗过期（避免旧图残留/遮挡）
+            try {
+              localStorage.setItem('mtScreenFloatImage', image)
+              localStorage.setItem('mtScreenFloatToken', 'reset-' + Date.now())
+            } catch (e) {}
+            // 创建贴屏置顶悬浮窗
             showFloatWindow(image)
             setBusy(false)
             return
@@ -424,6 +429,10 @@
             } else if (code === 'screen-ocr-float') {
               applyMode('float')
               status.textContent = '正在截图，稍后显示贴屏悬浮窗…'
+              // 先让旧悬浮窗过期关闭，避免遮挡框选区域或残留旧图
+              try {
+                localStorage.setItem('mtScreenFloatToken', 'reset-' + Date.now())
+              } catch (e) {}
             } else {
               applyMode('recognize')
               status.textContent = '正在截图…'

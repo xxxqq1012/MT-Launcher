@@ -10,12 +10,12 @@ type DeploymentMode = 'official' | 'private'
 // 同步配置
 const syncEnabled = ref(false)
 const config = ref({
-  provider: 'private' as DeploymentMode,
-  serverUrl: '',
+  provider: 'official' as DeploymentMode,
+  serverUrl: ONLINE_SYNC_SERVER_URL,
   syncInterval: 30,
   lastSyncTime: 0
 })
-const deploymentMode = ref<DeploymentMode>('private')
+const deploymentMode = ref<DeploymentMode>('official')
 const deploymentSwitching = ref(false)
 const privateFormDirty = ref(false)
 const privateServerUrl = ref('')
@@ -125,7 +125,7 @@ const lastSyncTime = computed(() => {
  */
 function applySyncStatus(status: any): void {
   const nextConfig = status?.profile || status?.config || null
-  const nextMode: DeploymentMode = 'private'
+  const nextMode: DeploymentMode = nextConfig?.provider === 'private' ? 'private' : 'official'
 
   if (nextConfig) {
     deploymentMode.value = nextMode
@@ -134,7 +134,8 @@ function applySyncStatus(status: any): void {
 
   syncEnabled.value = Boolean(configMatchesSelection && nextConfig?.enabled)
   config.value.provider = nextMode
-  config.value.serverUrl = nextConfig?.serverUrl || ''
+  config.value.serverUrl =
+    nextMode === 'official' ? ONLINE_SYNC_SERVER_URL : nextConfig?.serverUrl || ''
   config.value.syncInterval = nextConfig?.syncInterval || 30
   config.value.lastSyncTime = status?.lastSyncTime || nextConfig?.lastSyncTime || 0
   syncState.value = status?.state || 'disconnected'
@@ -160,6 +161,11 @@ function applySyncStatus(status: any): void {
  * @returns 无返回值。
  */
 function updateSelectedLoginState(): void {
+  if (deploymentMode.value === 'official') {
+    loggedIn.value = officialAccountLoggedIn.value
+    loggedUser.value = officialAccountUsername.value
+    return
+  }
   loggedIn.value = privateSessionLoggedIn.value
   loggedUser.value = savedPrivateUsername.value
 }
@@ -905,6 +911,18 @@ onUnmounted(() => {
           <button
             type="button"
             role="tab"
+            data-testid="sync-mode-official"
+            class="tab-btn"
+            :class="{ active: !isPrivateMode }"
+            :aria-selected="!isPrivateMode"
+            :disabled="deploymentSwitching || privateLoginLoading || privateLogoutLoading"
+            @click="handleDeploymentModeChange('official')"
+          >
+            官方服务
+          </button>
+          <button
+            type="button"
+            role="tab"
             data-testid="sync-mode-private"
             class="tab-btn"
             :class="{ active: isPrivateMode }"
@@ -930,6 +948,11 @@ onUnmounted(() => {
       </div>
 
       <div class="service-settings" data-testid="sync-service-settings">
+        <div v-if="!isPrivateMode" class="service-description">
+          <span>使用 ZTools 官方同步服务</span>
+          <span>{{ loggedIn ? `当前账号：${loggedUser}` : '请通过左下角登录 ZTools 账号' }}</span>
+        </div>
+
         <div
           v-if="isPrivateMode && privateSessionLoggedIn"
           class="private-session-summary"

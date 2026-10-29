@@ -228,6 +228,15 @@ function readBundledConfigFile() {
   }
 }
 
+/** 读取系统剪贴板文本（"粘贴"按钮使用；uTools 兼容层由 preload 注入 electron.clipboard） */
+function readClipboardText() {
+  try {
+    return clipboard.readText()
+  } catch {
+    return null
+  }
+}
+
 window.sqlFormatterBridge = Object.freeze({
   readClipboardText,
   formatWithEngine,

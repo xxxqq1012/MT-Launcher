@@ -8,26 +8,70 @@
     <script type="module" crossorigin src="./assets/index-BxN7U9Pp.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-BtExd9g-.css" />
     <style>
-      /* 配置视图样式（wjz 引擎配置） */
-      .config-view[hidden] {
+      /* 隐藏不展示的选项（DOM 保留，bundle 引用安全） */
+      #langOption,
+      #tabOption {
+        display: none !important;
+      }
+      /* 配置弹窗（Modal）样式 */
+      .modal-overlay[hidden] {
         display: none;
       }
-      .config-view {
-        flex: 1;
-        min-height: 0;
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      .modal-card {
+        width: 100%;
+        max-width: 720px;
+        max-height: 82vh;
         overflow: auto;
-        padding: 16px 20px;
+        border-radius: 12px;
+        background: var(--bg, #fff);
+        color: var(--fg, inherit);
+        border: 1px solid var(--border, rgba(128, 128, 128, 0.3));
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+        padding: 18px 20px 20px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
       }
-      .config-panel {
-        max-width: 860px;
-        margin: 0 auto;
+      .modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
       }
-      .config-panel h2 {
-        margin: 0 0 12px;
+      .modal-head h2 {
+        margin: 0;
         font-size: 16px;
       }
+      .modal-close {
+        border: none;
+        background: transparent;
+        color: inherit;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        opacity: 0.75;
+      }
+      .modal-close:hover {
+        opacity: 1;
+        background: rgba(128, 128, 128, 0.15);
+      }
       .config-section {
-        margin-bottom: 18px;
+        margin-bottom: 16px;
       }
       .config-section h3 {
         margin: 0 0 8px;
@@ -50,7 +94,7 @@
       }
       .cfg-editor {
         width: 100%;
-        min-height: 320px;
+        min-height: 260px;
         font-family: ui-monospace, Consolas, 'Courier New', monospace;
         font-size: 12px;
         line-height: 1.5;
@@ -72,7 +116,7 @@
       }
       .row input[type='text'] {
         flex: 1;
-        min-width: 260px;
+        min-width: 240px;
         font-family: ui-monospace, Consolas, 'Courier New', monospace;
         font-size: 12px;
         border: 1px solid var(--border, rgba(128, 128, 128, 0.3));
@@ -114,7 +158,7 @@
       </header>
 
       <section class="settings" aria-label="格式化选项">
-        <label>
+        <label id="langOption">
           <span>SQL 方言</span>
           <select id="languageSelect"></select>
         </label>
@@ -126,7 +170,7 @@
             <option value="preserve" selected>保持原样</option>
           </select>
         </label>
-        <label>
+        <label id="tabOption">
           <span>缩进</span>
           <select id="tabWidthSelect">
             <option value="2">2 空格</option>
@@ -182,58 +226,6 @@
         </article>
       </section>
 
-      <section id="configView" class="config-view" hidden>
-        <div class="config-panel">
-          <h2>SQL 格式化配置</h2>
-
-          <div class="config-section">
-            <h3>引擎状态</h3>
-            <div id="engineStatus" class="engine-status">检测中…</div>
-            <div class="row">
-              <button id="testEngineButton" class="button ghost" type="button">测试引擎</button>
-              <span class="hint">用一段样例 SQL 实跑引擎，展示 Java / jar / 配置链路诊断。</span>
-            </div>
-            <pre id="testOutput" class="test-output" hidden></pre>
-          </div>
-
-          <div class="config-section">
-            <h3>Java 路径</h3>
-            <span class="hint"
-              >留空自动探测（PATH → JAVA_HOME → Oracle → Program Files\Java → DBeaver 自带
-              jre）；指定后优先使用。可填写 DBeaver 自带的 java.exe 路径。</span
-            >
-            <div class="row">
-              <input
-                id="javaPathInput"
-                type="text"
-                placeholder="例如 C:\Program Files\DBeaver\jre\bin\java.exe"
-              />
-              <button id="saveJavaPathButton" class="button" type="button">保存</button>
-            </div>
-            <span id="javaPathStatus" class="hint"></span>
-          </div>
-
-          <div class="config-section">
-            <h3>SQL 格式化规则（sqlFormat.cfg）</h3>
-            <span class="hint"
-              >wjz 引擎的自定义规则（缩进、换行、对齐、大小写样式等），修改后保存即时生效。</span
-            >
-            <textarea
-              id="cfgEditor"
-              spellcheck="false"
-              class="cfg-editor"
-              aria-label="sqlFormat.cfg"
-            ></textarea>
-            <div class="row">
-              <button id="saveCfgButton" class="button primary" type="button">保存规则</button>
-              <button id="resetCfgButton" class="button ghost" type="button">恢复默认</button>
-              <button id="backToFormatButton" class="button ghost" type="button">返回格式化</button>
-            </div>
-            <span id="cfgStatus" class="hint"></span>
-          </div>
-        </div>
-      </section>
-
       <footer class="statusbar">
         <span id="statusText" role="status" aria-live="polite"
           >输入后自动格式化 · Ctrl + Shift + C 复制</span
@@ -242,28 +234,88 @@
       </footer>
     </main>
 
+    <div id="configModal" class="modal-overlay" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-label="SQL 格式化配置">
+        <div class="modal-head">
+          <h2>SQL 格式化配置</h2>
+          <button
+            id="modalCloseButton"
+            class="modal-close"
+            type="button"
+            title="关闭"
+            aria-label="关闭"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="config-section">
+          <h3>引擎状态</h3>
+          <div id="engineStatus" class="engine-status">检测中…</div>
+          <div class="row">
+            <button id="testEngineButton" class="button ghost" type="button">测试引擎</button>
+            <span class="hint">用一段样例 SQL 实跑引擎，展示 Java / jar / 配置链路诊断。</span>
+          </div>
+          <pre id="testOutput" class="test-output" hidden></pre>
+        </div>
+
+        <div class="config-section">
+          <h3>Java 路径</h3>
+          <span class="hint"
+            >留空自动探测（内置 JRE → PATH → JAVA_HOME → Oracle → Program Files\Java → DBeaver 自带
+            jre）；指定后优先使用。可填写 DBeaver 自带的 java.exe 路径。</span
+          >
+          <div class="row">
+            <input
+              id="javaPathInput"
+              type="text"
+              placeholder="例如 C:\Program Files\DBeaver\jre\bin\java.exe"
+            />
+            <button id="saveJavaPathButton" class="button" type="button">保存</button>
+          </div>
+          <span id="javaPathStatus" class="hint"></span>
+        </div>
+
+        <div class="config-section">
+          <h3>SQL 格式化规则（sqlFormat.cfg）</h3>
+          <span class="hint"
+            >wjz 引擎的自定义规则（缩进、换行、对齐、大小写样式等），修改后保存即时生效。</span
+          >
+          <textarea
+            id="cfgEditor"
+            spellcheck="false"
+            class="cfg-editor"
+            aria-label="sqlFormat.cfg"
+          ></textarea>
+          <div class="row">
+            <button id="saveCfgButton" class="button primary" type="button">保存规则</button>
+            <button id="resetCfgButton" class="button ghost" type="button">恢复默认</button>
+          </div>
+          <span id="cfgStatus" class="hint"></span>
+        </div>
+      </div>
+    </div>
+
     <script>
       ;(() => {
         const $ = (id) => document.getElementById(id)
-        const mainSections = [
-          document.querySelector('.settings'),
-          document.querySelector('.workspace'),
-          document.querySelector('.statusbar')
-        ]
-
-        function showConfig(show) {
-          const view = $('configView')
-          view.hidden = !show
-          for (const el of mainSections) {
-            if (el) el.hidden = show
-          }
-          if (show) loadConfigView()
-        }
 
         function setStatus(el, msg, ok) {
           if (!el) return
           el.textContent = msg
           el.style.color = ok === false ? '#d64545' : ok === true ? '#2f9e5f' : ''
+        }
+
+        function openConfigModal() {
+          const modal = $('configModal')
+          if (!modal) return
+          modal.hidden = false
+          loadConfigView()
+        }
+
+        function closeConfigModal() {
+          const modal = $('configModal')
+          if (modal) modal.hidden = true
         }
 
         function loadConfigView() {
@@ -296,8 +348,12 @@
         }
 
         function bindButtons() {
-          $('settingsButton').addEventListener('click', () => showConfig(true))
-          $('backToFormatButton').addEventListener('click', () => showConfig(false))
+          $('settingsButton').addEventListener('click', openConfigModal)
+          $('modalCloseButton').addEventListener('click', closeConfigModal)
+          const modal = $('configModal')
+          modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeConfigModal()
+          })
           $('saveCfgButton').addEventListener('click', () => {
             const b = window.sqlFormatterBridge
             const ok = b && b.writeSqlConfigFile($('cfgEditor').value)

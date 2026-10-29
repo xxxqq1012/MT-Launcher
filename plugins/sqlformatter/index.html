@@ -13,7 +13,72 @@
       #tabOption {
         display: none !important;
       }
-      /* 配置弹窗（Modal）样式 */
+      /* ===== 主题：浅色 / 深色 / One Dark（覆盖 bundle CSS 变量） ===== */
+      html[data-theme='light'] {
+        color-scheme: light;
+        --bg: #f4f1eb;
+        --surface: rgba(255, 255, 255, 0.76);
+        --surface-strong: #fff;
+        --ink: #20211e;
+        --muted: #76776f;
+        --line: rgba(32, 33, 30, 0.12);
+        --accent: #156f5b;
+        --accent-strong: #0e5848;
+        --accent-soft: rgba(21, 111, 91, 0.11);
+        --danger: #b33c36;
+        --success: #16705b;
+        --shadow: 0 12px 40px rgba(38, 38, 31, 0.08);
+      }
+      html[data-theme='dark'] {
+        color-scheme: dark;
+        --bg: #171a18;
+        --surface: rgba(35, 40, 37, 0.84);
+        --surface-strong: #292e2b;
+        --ink: #edf0eb;
+        --muted: #a0a69f;
+        --line: rgba(235, 242, 236, 0.11);
+        --accent: #55b69d;
+        --accent-strong: #3a967f;
+        --accent-soft: rgba(85, 182, 157, 0.15);
+        --danger: #ff8d84;
+        --success: #72d2b8;
+        --shadow: 0 14px 38px rgba(0, 0, 0, 0.18);
+      }
+      html[data-theme='onedark'] {
+        color-scheme: dark;
+        --bg: #282c34;
+        --surface: rgba(40, 44, 52, 0.85);
+        --surface-strong: #2c313a;
+        --ink: #abb2bf;
+        --muted: #7f848e;
+        --line: rgba(171, 178, 191, 0.16);
+        --accent: #61afef;
+        --accent-strong: #528bff;
+        --accent-soft: rgba(97, 175, 239, 0.16);
+        --danger: #e06c75;
+        --success: #98c379;
+        --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+      }
+      html[data-theme='onedark'] body {
+        background:
+          radial-gradient(circle at 85% -10%, rgba(97, 175, 239, 0.1), transparent 42%), var(--bg);
+      }
+      /* ===== 主题切换控件 ===== */
+      .theme-control {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-right: 10px;
+      }
+      .theme-control select {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: transparent;
+        color: inherit;
+        font-size: 12px;
+        padding: 5px 8px;
+      }
+      /* ===== 配置弹窗（Modal）样式 ===== */
       .modal-overlay[hidden] {
         display: none;
       }
@@ -30,13 +95,13 @@
       }
       .modal-card {
         width: 100%;
-        max-width: 720px;
-        max-height: 82vh;
+        max-width: 1080px;
+        max-height: 86vh;
         overflow: auto;
         border-radius: 12px;
-        background: var(--bg, #fff);
-        color: var(--fg, inherit);
-        border: 1px solid var(--border, rgba(128, 128, 128, 0.3));
+        background: var(--surface-strong, #fff);
+        color: var(--ink, inherit);
+        border: 1px solid var(--line);
         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
         padding: 18px 20px 20px;
         box-sizing: border-box;
@@ -92,21 +157,6 @@
         white-space: pre-wrap;
         margin-bottom: 8px;
       }
-      .cfg-editor {
-        width: 100%;
-        min-height: 260px;
-        font-family: ui-monospace, Consolas, 'Courier New', monospace;
-        font-size: 12px;
-        line-height: 1.5;
-        border: 1px solid var(--border, rgba(128, 128, 128, 0.3));
-        border-radius: 8px;
-        padding: 8px 10px;
-        box-sizing: border-box;
-        background: transparent;
-        color: inherit;
-        resize: vertical;
-        tab-size: 2;
-      }
       .row {
         display: flex;
         gap: 8px;
@@ -119,7 +169,7 @@
         min-width: 240px;
         font-family: ui-monospace, Consolas, 'Courier New', monospace;
         font-size: 12px;
-        border: 1px solid var(--border, rgba(128, 128, 128, 0.3));
+        border: 1px solid var(--line);
         border-radius: 8px;
         padding: 7px 10px;
         background: transparent;
@@ -143,6 +193,104 @@
         gap: 8px;
         margin-left: 8px;
       }
+      /* ===== 规则三栏布局 ===== */
+      .rule-layout {
+        display: flex;
+        gap: 12px;
+        min-height: 420px;
+      }
+      .rule-left {
+        flex: 0 0 250px;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        box-sizing: border-box;
+      }
+      .rule-left .rule-group-title {
+        font-size: 12px;
+        font-weight: 600;
+        opacity: 0.65;
+        margin: 10px 0 6px;
+      }
+      .rule-left .rule-group-title:first-child {
+        margin-top: 0;
+      }
+      .rule-left label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        padding: 4px 0;
+        cursor: pointer;
+        user-select: none;
+      }
+      .rule-left input[type='checkbox'] {
+        accent-color: var(--accent);
+        width: 14px;
+        height: 14px;
+        flex: 0 0 auto;
+      }
+      .rule-mid,
+      .rule-right {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .rule-head {
+        font-size: 12px;
+        opacity: 0.7;
+        margin-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .rule-mid textarea,
+      .rule-right textarea {
+        flex: 1;
+        min-height: 0;
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.55;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        box-sizing: border-box;
+        background: var(--surface, transparent);
+        color: inherit;
+        resize: none;
+        white-space: pre;
+        overflow: auto;
+        tab-size: 2;
+      }
+      .rule-right textarea[readonly] {
+        color: var(--success);
+      }
+      details.adv-cfg {
+        margin-top: 12px;
+      }
+      details.adv-cfg summary {
+        cursor: pointer;
+        font-size: 12px;
+        opacity: 0.75;
+      }
+      .cfg-editor {
+        width: 100%;
+        min-height: 200px;
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        box-sizing: border-box;
+        background: transparent;
+        color: inherit;
+        resize: vertical;
+        tab-size: 2;
+        margin-top: 8px;
+      }
     </style>
   </head>
   <body>
@@ -158,6 +306,15 @@
       </header>
 
       <section class="settings" aria-label="格式化选项">
+        <div class="theme-control" title="界面主题">
+          <span>主题</span>
+          <select id="themeSelect">
+            <option value="auto">跟随系统</option>
+            <option value="light">浅色</option>
+            <option value="dark">深色</option>
+            <option value="onedark">One Dark</option>
+          </select>
+        </div>
         <label id="langOption">
           <span>SQL 方言</span>
           <select id="languageSelect"></select>
@@ -277,21 +434,47 @@
         </div>
 
         <div class="config-section">
-          <h3>SQL 格式化规则（sqlFormat.cfg）</h3>
+          <h3>SQL 格式化规则</h3>
           <span class="hint"
-            >wjz 引擎的自定义规则（缩进、换行、对齐、大小写样式等），修改后保存即时生效。</span
+            >左侧勾选规则，中间编辑 SQL 范本，右侧实时预览 wjz
+            引擎格式化效果；改动即保存生效。</span
           >
-          <textarea
-            id="cfgEditor"
-            spellcheck="false"
-            class="cfg-editor"
-            aria-label="sqlFormat.cfg"
-          ></textarea>
+          <div class="rule-layout">
+            <div class="rule-left" id="ruleCheckboxes"></div>
+            <div class="rule-mid">
+              <div class="rule-head"><span>SQL 范本</span></div>
+              <textarea id="cfgSampleInput" spellcheck="false" aria-label="SQL 范本"></textarea>
+            </div>
+            <div class="rule-right">
+              <div class="rule-head">
+                <span>格式化效果</span>
+                <span id="cfgPreviewStatus" class="hint"></span>
+              </div>
+              <textarea
+                id="cfgSampleOutput"
+                spellcheck="false"
+                readonly
+                aria-label="格式化效果"
+              ></textarea>
+            </div>
+          </div>
           <div class="row">
             <button id="saveCfgButton" class="button primary" type="button">保存规则</button>
             <button id="resetCfgButton" class="button ghost" type="button">恢复默认</button>
           </div>
           <span id="cfgStatus" class="hint"></span>
+          <details class="adv-cfg">
+            <summary>高级：直接编辑 sqlFormat.cfg 配置文件</summary>
+            <textarea
+              id="cfgEditor"
+              spellcheck="false"
+              class="cfg-editor"
+              aria-label="sqlFormat.cfg"
+            ></textarea>
+            <div class="row">
+              <button id="applyAdvCfgButton" class="button" type="button">应用高级配置</button>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -299,11 +482,38 @@
     <script>
       ;(() => {
         const $ = (id) => document.getElementById(id)
+        const THEME_KEY = 'mt-sqlformatter-theme'
 
+        /* ================= 主题 ================= */
+        function applyTheme(value) {
+          const html = document.documentElement
+          if (value === 'auto') {
+            delete html.dataset.theme
+          } else {
+            html.dataset.theme = value
+          }
+          try {
+            localStorage.setItem(THEME_KEY, value)
+          } catch (e) {}
+        }
+
+        function initTheme() {
+          const sel = $('themeSelect')
+          let saved = 'auto'
+          try {
+            saved = localStorage.getItem(THEME_KEY) || 'auto'
+          } catch (e) {}
+          if (!['auto', 'light', 'dark', 'onedark'].includes(saved)) saved = 'auto'
+          sel.value = saved
+          applyTheme(saved)
+          sel.addEventListener('change', () => applyTheme(sel.value))
+        }
+
+        /* ================= 配置弹窗 ================= */
         function setStatus(el, msg, ok) {
           if (!el) return
           el.textContent = msg
-          el.style.color = ok === false ? '#d64545' : ok === true ? '#2f9e5f' : ''
+          el.style.color = ok === false ? 'var(--danger)' : ok === true ? 'var(--success)' : ''
         }
 
         function openConfigModal() {
@@ -316,6 +526,181 @@
         function closeConfigModal() {
           const modal = $('configModal')
           if (modal) modal.hidden = true
+        }
+
+        /* ============ 规则配置器（17 项，对应 sqlFormat.cfg） ============ */
+        const RULE_GROUPS = [
+          {
+            title: '通用',
+            items: [
+              ['ishowPseudoCodeWanted', '是否代码折叠'],
+              ['iuseTabWanted', '是否使用 tab'],
+              ['ikeepEmptyLinesWanted', '是否保留空行'],
+              ['idoubleLinebreakUNIONWanted', '关键字 union 前后空一行'],
+              ['iput1SpaceAfterCommaWanted', '关键字","后插入 1 空格'],
+              ['ireplaceCommentWanted', '单行注释替换成块注释'],
+              ['ishowIndentWanted', '是否显示缩进'],
+              ['ishowLineNumber', '是否显示行号'],
+              ['isuppressCommentWanted', '是否移除注释'],
+              ['ioneLineSQLWanted', '是否输出一行 SQL'],
+              ['isuppressLinebreakWanted', '避免多次换行'],
+              ['isuppressSpacesWanted', '避免多次空格']
+            ]
+          },
+          {
+            title: '关键字换行',
+            items: [
+              ['ilinebreakBeforeAND', '关键字 and 前换行'],
+              ['ilinebreakAfterAND', '关键字 and 后换行'],
+              ['ilinebreakAfterFROM', '关键字 from 后换行'],
+              ['ilinebreakAfterGROUPBY', '关键字 group by 后换行'],
+              ['ilinebreakAfterHAVING', '关键字 having 后换行']
+            ]
+          }
+        ]
+        const RULE_KEYS = RULE_GROUPS.flatMap((g) => g.items.map((i) => i[0]))
+
+        const SAMPLE_SQL = [
+          '-- 查询sql',
+          'SELECT COLUMN1,COLUMN2,COLUMN3,COLUMN4,COLUMN5',
+          'FROM tab5',
+          'WHERE COLUMN1>0 AND COLUMN3=1',
+          'UNION ALL',
+          'SELECT tab12.column111,tab12.column101 || tab3.column301 AS COLUMN2',
+          'CASE tab3.column301 WHEN tab3.column311 THEN COLUMN321',
+          'WHEN tab3.column331 THEN COLUMN331',
+          'CASE WHEN tab3.column401=COLUMN402 THEN tab3.column401 WHEN tab3.column401=COLUMN403 THEN tab3.column403 END',
+          'FROM (SELECT tab1.column101,tab1.column201,/*注释*/max(tab1.column102) AS column102,sum(tab2.column202) AS column202',
+          'FROM tab1',
+          'LEFT JOIN tab2 ON tab1.column101=tab2.column201',
+          "WHERE tab1.column105='test' AND TAB2.column206 IN (1,2,3)",
+          'AND tab2.column205 <= tab1.column200+200',
+          'GROUP BY tab1.column101,tab1.column201',
+          'HAVING count (tab1.column101)>1 AND sum(tab2.column202)>0) tab3',
+          'LEFT JOIN tab3 ON tab3.column301=tab1.column101',
+          'WHERE tab3.column305>0 AND tab3.column306>0',
+          'ORDER BY tab12.column101,tab12.column201;',
+          '-- 新增sql',
+          'INSERT INTO tab1 (column101,column102,column103,column104,column105)',
+          "values('column101','column102','column103','column104','column105');",
+          '-- 修改sql',
+          "UPDATE tab1 SET column101='column101',column102='column102',column103='column103'",
+          "WHERE tab1.column105='test' AND tab1.column106>(SELECT max(column1) FROM tab5 WHERE COLUMN1>0 AND COLUMN3=1);"
+        ].join('\n')
+
+        let previewTimer = null
+        let previewBusy = false
+        let previewSeq = 0
+
+        function buildRuleCheckboxes() {
+          const box = $('ruleCheckboxes')
+          box.innerHTML = ''
+          for (const group of RULE_GROUPS) {
+            const title = document.createElement('div')
+            title.className = 'rule-group-title'
+            title.textContent = group.title
+            box.appendChild(title)
+            for (const [key, label] of group.items) {
+              const lab = document.createElement('label')
+              const cb = document.createElement('input')
+              cb.type = 'checkbox'
+              cb.dataset.cfg = key
+              lab.appendChild(cb)
+              lab.appendChild(document.createTextNode(label))
+              box.appendChild(lab)
+            }
+          }
+          box.addEventListener('change', (e) => {
+            if (e.target && e.target.dataset && e.target.dataset.cfg) schedulePreview()
+          })
+        }
+
+        function syncCheckboxes(cfgText) {
+          for (const cb of document.querySelectorAll('#ruleCheckboxes input[data-cfg]')) {
+            const m = new RegExp('^' + cb.dataset.cfg + '=(true|false)', 'm').exec(cfgText || '')
+            cb.checked = m ? m[1] === 'true' : false
+          }
+        }
+
+        /** 根据勾选状态生成新的 cfg 全文（行级替换 17 键，保留其余配置） */
+        function rulesToCfg(cfgText) {
+          let out = cfgText || ''
+          for (const key of RULE_KEYS) {
+            const cb = document.querySelector('#ruleCheckboxes input[data-cfg="' + key + '"]')
+            const val = cb && cb.checked ? 'true' : 'false'
+            const re = new RegExp('^' + key + '=.*$', 'm')
+            if (re.test(out)) {
+              out = out.replace(re, key + '=' + val)
+            } else {
+              out += '\n' + key + '=' + val
+            }
+          }
+          return out
+        }
+
+        function schedulePreview() {
+          if (previewTimer) clearTimeout(previewTimer)
+          previewTimer = setTimeout(runPreview, 350)
+        }
+
+        function runPreview() {
+          const b = window.sqlFormatterBridge
+          const out = $('cfgSampleOutput')
+          const status = $('cfgPreviewStatus')
+          if (!b || !b.formatWithEngine) {
+            out.value = ''
+            setStatus(status, '桥接不可用', false)
+            return
+          }
+          if (previewBusy) return
+          previewBusy = true
+          const seq = ++previewSeq
+          setStatus(status, '引擎运行中…', null)
+          try {
+            const result = b.formatWithEngine($('cfgSampleInput').value)
+            if (seq !== previewSeq) return
+            if (result) {
+              out.value = result
+              setStatus(status, 'wjz 引擎', true)
+            } else {
+              out.value = ''
+              setStatus(status, '引擎不可用（检查 Java 与 jar）', false)
+            }
+          } catch (e) {
+            if (seq === previewSeq) {
+              out.value = ''
+              setStatus(status, '预览失败', false)
+            }
+          } finally {
+            previewBusy = false
+          }
+        }
+
+        function loadCfgIntoRules() {
+          const b = window.sqlFormatterBridge
+          if (!b) return
+          let cfg = b.readSqlConfigFile()
+          if (cfg === null || !cfg.trim()) {
+            cfg = b.readBundledConfigFile() || ''
+          }
+          syncCheckboxes(cfg)
+          $('cfgEditor').value = cfg
+        }
+
+        function applyRules(notify) {
+          const b = window.sqlFormatterBridge
+          if (!b) return false
+          const base = b.readSqlConfigFile() || b.readBundledConfigFile() || ''
+          const newCfg = rulesToCfg(base)
+          const ok = b.writeSqlConfigFile(newCfg)
+          $('cfgEditor').value = newCfg
+          if (ok) {
+            schedulePreview()
+            if (notify) setStatus($('cfgStatus'), '规则已保存，格式化即时生效', true)
+          } else if (notify) {
+            setStatus($('cfgStatus'), '保存失败', false)
+          }
+          return ok
         }
 
         function loadConfigView() {
@@ -336,15 +721,11 @@
           // Java 路径输入框
           const settings = b.readSettings()
           $('javaPathInput').value = settings && settings.javaPath ? settings.javaPath : ''
-          // cfg 编辑器
-          const cfg = b.readSqlConfigFile()
-          if (cfg !== null) {
-            $('cfgEditor').value = cfg
-            setStatus($('cfgStatus'), '')
-          } else {
-            setStatus($('cfgStatus'), '读取 sqlFormat.cfg 失败', false)
-          }
+          // 规则配置器
+          if (!$('cfgSampleInput').value) $('cfgSampleInput').value = SAMPLE_SQL
+          loadCfgIntoRules()
           $('testOutput').hidden = true
+          schedulePreview()
         }
 
         function bindButtons() {
@@ -354,20 +735,34 @@
           modal.addEventListener('click', (e) => {
             if (e.target === modal) closeConfigModal()
           })
-          $('saveCfgButton').addEventListener('click', () => {
-            const b = window.sqlFormatterBridge
-            const ok = b && b.writeSqlConfigFile($('cfgEditor').value)
-            setStatus($('cfgStatus'), ok ? '规则已保存，下次格式化即时生效' : '保存失败', ok)
-          })
+          $('cfgSampleInput').addEventListener('input', schedulePreview)
+          $('saveCfgButton').addEventListener('click', () => applyRules(true))
           $('resetCfgButton').addEventListener('click', () => {
             const b = window.sqlFormatterBridge
             const def = b && b.readBundledConfigFile()
-            if (def === null) {
+            if (def === null || def === undefined) {
               setStatus($('cfgStatus'), '读取默认规则失败', false)
               return
             }
-            $('cfgEditor').value = def
-            setStatus($('cfgStatus'), '已恢复为内置默认规则（尚未保存，点"保存规则"生效）', true)
+            if (b.writeSqlConfigFile(def)) {
+              loadCfgIntoRules()
+              setStatus($('cfgStatus'), '已恢复默认规则并保存', true)
+              schedulePreview()
+            } else {
+              setStatus($('cfgStatus'), '保存失败', false)
+            }
+          })
+          $('applyAdvCfgButton').addEventListener('click', () => {
+            const b = window.sqlFormatterBridge
+            if (!b) return
+            const ok = b.writeSqlConfigFile($('cfgEditor').value)
+            if (ok) {
+              loadCfgIntoRules()
+              setStatus($('cfgStatus'), '高级配置已应用', true)
+              schedulePreview()
+            } else {
+              setStatus($('cfgStatus'), '保存失败', false)
+            }
           })
           $('saveJavaPathButton').addEventListener('click', () => {
             const b = window.sqlFormatterBridge
@@ -405,6 +800,8 @@
           })
         }
 
+        initTheme()
+        buildRuleCheckboxes()
         bindButtons()
         // 首次进入时静态探测引擎并更新页面底栏提示（不执行 java，不阻塞）
         try {

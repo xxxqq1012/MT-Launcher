@@ -19,8 +19,16 @@ async function main() {
   // 1. 组装构建目录（页面/preload + 引擎文件）
   fs.rmSync(BUILD_DIR, { recursive: true, force: true })
   fs.mkdirSync(path.join(BUILD_DIR, 'lib'), { recursive: true })
-  for (const f of ['plugin.json', 'preload.cjs', 'index.html', 'logo.png']) {
-    fs.copyFileSync(path.join(SRC_DIR, f), path.join(BUILD_DIR, f))
+  for (const f of [
+    'plugin.json',
+    'preload.cjs',
+    'index.html',
+    'logo.png',
+    'LICENSE',
+    'THIRD_PARTY_NOTICES.md'
+  ]) {
+    const src = path.join(SRC_DIR, f)
+    if (fs.existsSync(src)) fs.copyFileSync(src, path.join(BUILD_DIR, f))
   }
   fs.cpSync(path.join(SRC_DIR, 'assets'), path.join(BUILD_DIR, 'assets'), { recursive: true })
   const engineFiles = fs

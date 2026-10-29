@@ -7,6 +7,94 @@
     <title>SQL 格式化</title>
     <script type="module" crossorigin src="./assets/index-BxN7U9Pp.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-BtExd9g-.css" />
+    <style>
+      /* 配置视图样式（wjz 引擎配置） */
+      .config-view[hidden] {
+        display: none;
+      }
+      .config-view {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 16px 20px;
+      }
+      .config-panel {
+        max-width: 860px;
+        margin: 0 auto;
+      }
+      .config-panel h2 {
+        margin: 0 0 12px;
+        font-size: 16px;
+      }
+      .config-section {
+        margin-bottom: 18px;
+      }
+      .config-section h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+      }
+      .hint {
+        font-size: 12px;
+        opacity: 0.7;
+        margin: 4px 0;
+        display: block;
+      }
+      .engine-status {
+        font-size: 13px;
+        line-height: 1.7;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: var(--muted, rgba(128, 128, 128, 0.12));
+        white-space: pre-wrap;
+        margin-bottom: 8px;
+      }
+      .cfg-editor {
+        width: 100%;
+        min-height: 320px;
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        border: 1px solid var(--border, rgba(128, 128, 128, 0.3));
+        border-radius: 8px;
+        padding: 8px 10px;
+        box-sizing: border-box;
+        background: transparent;
+        color: inherit;
+        resize: vertical;
+        tab-size: 2;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+      .row input[type='text'] {
+        flex: 1;
+        min-width: 260px;
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+        font-size: 12px;
+        border: 1px solid var(--border, rgba(128, 128, 128, 0.3));
+        border-radius: 8px;
+        padding: 7px 10px;
+        background: transparent;
+        color: inherit;
+        box-sizing: border-box;
+      }
+      .test-output {
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        background: var(--muted, rgba(128, 128, 128, 0.12));
+        border-radius: 8px;
+        padding: 8px 10px;
+        max-height: 200px;
+        overflow: auto;
+        margin: 0 0 8px;
+      }
+    </style>
   </head>
   <body>
     <main class="app-shell">
@@ -25,6 +113,9 @@
           <button id="clearButton" class="button ghost" type="button">清空</button>
           <button id="formatButton" class="button primary" type="button" title="Ctrl + Enter">
             格式化
+          </button>
+          <button id="settingsButton" class="button ghost" type="button" title="格式化配置">
+            配置
           </button>
         </div>
       </header>
@@ -86,6 +177,58 @@
         </article>
       </section>
 
+      <section id="configView" class="config-view" hidden>
+        <div class="config-panel">
+          <h2>SQL 格式化配置</h2>
+
+          <div class="config-section">
+            <h3>引擎状态</h3>
+            <div id="engineStatus" class="engine-status">检测中…</div>
+            <div class="row">
+              <button id="testEngineButton" class="button ghost" type="button">测试引擎</button>
+              <span class="hint">用一段样例 SQL 实跑引擎，展示 Java / jar / 配置链路诊断。</span>
+            </div>
+            <pre id="testOutput" class="test-output" hidden></pre>
+          </div>
+
+          <div class="config-section">
+            <h3>Java 路径</h3>
+            <span class="hint"
+              >留空自动探测（PATH → JAVA_HOME → Oracle → Program Files\Java → DBeaver 自带
+              jre）；指定后优先使用。可填写 DBeaver 自带的 java.exe 路径。</span
+            >
+            <div class="row">
+              <input
+                id="javaPathInput"
+                type="text"
+                placeholder="例如 C:\Program Files\DBeaver\jre\bin\java.exe"
+              />
+              <button id="saveJavaPathButton" class="button" type="button">保存</button>
+            </div>
+            <span id="javaPathStatus" class="hint"></span>
+          </div>
+
+          <div class="config-section">
+            <h3>SQL 格式化规则（sqlFormat.cfg）</h3>
+            <span class="hint"
+              >wjz 引擎的自定义规则（缩进、换行、对齐、大小写样式等），修改后保存即时生效。</span
+            >
+            <textarea
+              id="cfgEditor"
+              spellcheck="false"
+              class="cfg-editor"
+              aria-label="sqlFormat.cfg"
+            ></textarea>
+            <div class="row">
+              <button id="saveCfgButton" class="button primary" type="button">保存规则</button>
+              <button id="resetCfgButton" class="button ghost" type="button">恢复默认</button>
+              <button id="backToFormatButton" class="button ghost" type="button">返回格式化</button>
+            </div>
+            <span id="cfgStatus" class="hint"></span>
+          </div>
+        </div>
+      </section>
+
       <footer class="statusbar">
         <span id="statusText" role="status" aria-live="polite"
           >输入后自动格式化 · Ctrl + Shift + C 复制</span
@@ -93,5 +236,133 @@
         <span>sql-formatter 15.8.2</span>
       </footer>
     </main>
+
+    <script>
+      ;(() => {
+        const $ = (id) => document.getElementById(id)
+        const mainSections = [
+          document.querySelector('.settings'),
+          document.querySelector('.workspace'),
+          document.querySelector('.statusbar')
+        ]
+
+        function showConfig(show) {
+          const view = $('configView')
+          view.hidden = !show
+          for (const el of mainSections) {
+            if (el) el.hidden = show
+          }
+          if (show) loadConfigView()
+        }
+
+        function setStatus(el, msg, ok) {
+          if (!el) return
+          el.textContent = msg
+          el.style.color = ok === false ? '#d64545' : ok === true ? '#2f9e5f' : ''
+        }
+
+        function loadConfigView() {
+          const b = window.sqlFormatterBridge
+          if (!b) {
+            setStatus($('engineStatus'), '桥接不可用', false)
+            return
+          }
+          // 引擎状态
+          const diag = b.testEngine('select a,b from tab1 where a>1')
+          const lines = []
+          lines.push(
+            'Java: ' + (diag.java || '未找到') + (diag.javaFrom ? '（' + diag.javaFrom + '）' : '')
+          )
+          lines.push('引擎 jar: ' + (diag.jar || '未找到'))
+          lines.push('执行: ' + (diag.ran ? '成功' : '未执行'))
+          if (diag.error) lines.push('诊断: ' + diag.error)
+          setStatus($('engineStatus'), lines.join('\n'), diag.ran)
+          // Java 路径输入框
+          const settings = b.readEngineSettings()
+          $('javaPathInput').value = settings && settings.javaPath ? settings.javaPath : ''
+          // cfg 编辑器
+          const cfg = b.readSqlConfigFile()
+          if (cfg !== null) {
+            $('cfgEditor').value = cfg
+            setStatus($('cfgStatus'), '')
+          } else {
+            setStatus($('cfgStatus'), '读取 sqlFormat.cfg 失败', false)
+          }
+          $('testOutput').hidden = true
+        }
+
+        function bindButtons() {
+          $('settingsButton').addEventListener('click', () => showConfig(true))
+          $('backToFormatButton').addEventListener('click', () => showConfig(false))
+          $('saveCfgButton').addEventListener('click', () => {
+            const b = window.sqlFormatterBridge
+            const ok = b && b.writeSqlConfigFile($('cfgEditor').value)
+            setStatus($('cfgStatus'), ok ? '规则已保存，下次格式化即时生效' : '保存失败', ok)
+          })
+          $('resetCfgButton').addEventListener('click', () => {
+            const b = window.sqlFormatterBridge
+            const def = b && b.readBundledConfigFile()
+            if (def === null) {
+              setStatus($('cfgStatus'), '读取默认规则失败', false)
+              return
+            }
+            $('cfgEditor').value = def
+            setStatus($('cfgStatus'), '已恢复为内置默认规则（尚未保存，点"保存规则"生效）', true)
+          })
+          $('saveJavaPathButton').addEventListener('click', () => {
+            const b = window.sqlFormatterBridge
+            if (!b) return
+            const val = $('javaPathInput').value.trim()
+            const settings = b.readEngineSettings() || {}
+            settings.javaPath = val || null
+            const ok = b.writeEngineSettings(settings)
+            setStatus(
+              $('javaPathStatus'),
+              ok ? (val ? '已保存：' + val : '已清除，将自动探测') : '保存失败',
+              ok
+            )
+          })
+          $('testEngineButton').addEventListener('click', () => {
+            const b = window.sqlFormatterBridge
+            if (!b) return
+            const out = $('testOutput')
+            out.hidden = false
+            const diag = b.testEngine('select a,b from tab1 where a>1')
+            const lines = [
+              'Java: ' +
+                (diag.java || '未找到') +
+                (diag.javaFrom ? '（' + diag.javaFrom + '）' : '')
+            ]
+            lines.push('引擎 jar: ' + (diag.jar || '未找到'))
+            if (diag.ran) {
+              lines.push('执行成功，输出：')
+              lines.push('---')
+              lines.push(diag.output || '(空)')
+            } else if (diag.error) {
+              lines.push('诊断: ' + diag.error)
+            }
+            out.textContent = lines.join('\n')
+          })
+        }
+
+        bindButtons()
+        // 首次进入时自动跑一次诊断并更新页面底栏提示（不打断格式化流程）
+        try {
+          const b = window.sqlFormatterBridge
+          if (b && typeof b.testEngine === 'function') {
+            setTimeout(() => {
+              const diag = b.testEngine('')
+              const st = document.getElementById('statusText')
+              if (st && diag && !diag.ran) {
+                st.textContent =
+                  'wjz 引擎不可用（' +
+                  (diag.error || '未知') +
+                  '），当前使用内置格式化，可点"配置"设置'
+              }
+            }, 400)
+          }
+        } catch (e) {}
+      })()
+    </script>
   </body>
 </html>

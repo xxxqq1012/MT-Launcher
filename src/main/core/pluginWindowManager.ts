@@ -113,6 +113,7 @@ export const winIpc = {
   windowInvokes: ['capturePage'] as const,
 
   webContentsMethods: [
+    'send',
     'isDestroyed',
     'focus',
     'isFocused',

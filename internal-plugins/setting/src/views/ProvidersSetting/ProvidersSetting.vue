@@ -3,24 +3,22 @@ import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import AiModelsSetting from '@/views/AiModelsSetting/AiModelsSetting.vue'
 import TranslationProviders from './components/TranslationProviders.vue'
-import OcrProviders from './components/OcrProviders.vue'
 
-type Tab = 'ai' | 'translation' | 'ocr'
+type Tab = 'ai' | 'translation'
 
 const route = useRoute()
 
 // 支持通过 query.tab 深链直达某个 tab（如通用设置页的「前往翻译」）
 const initialTab = ((): Tab => {
   const t = typeof route.query.tab === 'string' ? route.query.tab : ''
-  return t === 'translation' || t === 'ocr' || t === 'ai' ? (t as Tab) : 'ai'
+  return t === 'translation' || t === 'ai' ? (t as Tab) : 'ai'
 })()
 
 const activeTab = ref<Tab>(initialTab)
 
 const tabs: Array<{ key: Tab; label: string }> = [
   { key: 'ai', label: 'AI' },
-  { key: 'translation', label: '翻译' },
-  { key: 'ocr', label: 'OCR' }
+  { key: 'translation', label: '翻译' }
 ]
 </script>
 
@@ -45,7 +43,6 @@ const tabs: Array<{ key: Tab; label: string }> = [
     <div class="providers-content">
       <AiModelsSetting v-show="activeTab === 'ai'" />
       <TranslationProviders v-if="activeTab === 'translation'" />
-      <OcrProviders v-if="activeTab === 'ocr'" />
     </div>
   </div>
 </template>

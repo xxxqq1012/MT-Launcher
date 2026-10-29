@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { onActivated, onMounted, onUnmounted, ref, computed } from 'vue'
 import { useToast, DetailPanel } from '@/components'
+import { AccountLoginDialog } from '@/components/common'
 import { ONLINE_SYNC_SERVER_URL } from '@/composables/useZToolsAccount'
 import { normalizeSyncServerUrl } from '@shared/syncServerUrl'
 
 const { success, error, warning, confirm } = useToast()
+const showOfficialLogin = ref(false)
 type DeploymentMode = 'official' | 'private'
 
 // 同步配置
@@ -732,7 +734,7 @@ async function handleSyncToggle(): Promise<void> {
     }
 
     if (syncEnabled.value && !loggedIn.value) {
-      warning(isPrivateMode.value ? '请先登录私有同步服务器' : '请先通过左下角登录 ZTools 账号')
+      warning(isPrivateMode.value ? '请先登录私有同步服务器' : '请先登录官方账号')
       syncEnabled.value = false
       return
     }
@@ -950,7 +952,15 @@ onUnmounted(() => {
       <div class="service-settings" data-testid="sync-service-settings">
         <div v-if="!isPrivateMode" class="service-description">
           <span>使用 ZTools 官方同步服务</span>
-          <span>{{ loggedIn ? `当前账号：${loggedUser}` : '请通过左下角登录 ZTools 账号' }}</span>
+          <span v-if="loggedIn" class="official-account-name">当前账号：{{ loggedUser }}</span>
+          <button
+            v-else
+            type="button"
+            class="official-login-link"
+            @click="showOfficialLogin = true"
+          >
+            登录官方账号
+          </button>
         </div>
 
         <div
@@ -1297,6 +1307,8 @@ onUnmounted(() => {
         </div>
       </DetailPanel>
     </Transition>
+
+    <AccountLoginDialog v-model:visible="showOfficialLogin" />
   </div>
 </template>
 
@@ -1384,6 +1396,29 @@ onUnmounted(() => {
   gap: 16px;
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+.official-login-link {
+  padding: 3px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
+  font-size: 12px;
+  line-height: 1.6;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.official-login-link:hover {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.official-account-name {
+  color: var(--success-color, #18a058);
 }
 
 .private-login-form {

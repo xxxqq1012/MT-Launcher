@@ -238,7 +238,7 @@ async function handleReceiveBetaUpdatesChange(): Promise<void> {
             </svg>
           </div>
           <div class="card-label">作者</div>
-          <div class="card-value">Zing</div>
+          <div class="card-value">xxxqq1012</div>
         </div>
 
         <div class="about-card clickable" @click="openQQGroup">

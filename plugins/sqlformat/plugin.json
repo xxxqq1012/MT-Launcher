@@ -1,0 +1,26 @@
+{
+  "name": "sqlformat",
+  "version": "1.0.0",
+  "description": "SQL 格式化（DBeaver wjz-sqlFormat 引擎，支持自定义格式规则，需 JDK 8+）",
+  "author": "xxxqq1012",
+  "homepage": "https://github.com/xxxqq1012/mTools",
+  "preload": "preload.js",
+  "logo": "",
+  "features": [
+    {
+      "code": "sqlformat",
+      "cmds": ["SQL 格式化", "sql format"],
+      "explain": "输入或选中 SQL 文本，回车后按自定义规则格式化"
+    },
+    {
+      "code": "sqlformat-over",
+      "cmds": [
+        {
+          "type": "over",
+          "label": "SQL 格式化",
+          "maxLength": 100000
+        }
+      ]
+    }
+  ]
+}

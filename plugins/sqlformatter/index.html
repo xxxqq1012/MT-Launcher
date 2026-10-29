@@ -8,9 +8,11 @@
     <script type="module" crossorigin src="./assets/index-BxN7U9Pp.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-BtExd9g-.css" />
     <style>
-      /* 隐藏不展示的选项（DOM 保留，bundle 引用安全） */
+      /* 隐藏不展示的选项（DOM 保留，bundle 引用安全）：方言/缩进/关键字/紧凑运算符 */
       #langOption,
-      #tabOption {
+      #tabOption,
+      #keywordOption,
+      #denseOption {
         display: none !important;
       }
       /* ===== 主题：浅色 / 深色 / One Dark（覆盖 bundle CSS 变量） ===== */
@@ -63,6 +65,14 @@
         background:
           radial-gradient(circle at 85% -10%, rgba(97, 175, 239, 0.1), transparent 42%), var(--bg);
       }
+      /* ===== 保持原页面样式：编辑器区域高度受限，不随窗口拉伸留白 ===== */
+      .workspace {
+        align-items: start;
+      }
+      .workspace .editor-panel textarea,
+      .workspace .editor-shell textarea {
+        max-height: 520px;
+      }
       /* ===== 主题切换控件 ===== */
       .theme-control {
         display: flex;
@@ -77,6 +87,69 @@
         color: inherit;
         font-size: 12px;
         padding: 5px 8px;
+      }
+      /* ===== One Dark：SQL 编辑器语法高亮层 ===== */
+      .editor-shell {
+        position: relative;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+      }
+      .sql-hl {
+        position: absolute;
+        inset: 0;
+        margin: 0;
+        padding: 13px 14px 48px;
+        font-family:
+          Cascadia Code,
+          JetBrains Mono,
+          Consolas,
+          monospace;
+        font-size: 12px;
+        line-height: 1.65;
+        tab-size: 2;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow: scroll;
+        scrollbar-width: none;
+        pointer-events: none;
+        color: #abb2bf;
+        background: transparent;
+        display: none;
+      }
+      .sql-hl::-webkit-scrollbar {
+        display: none;
+      }
+      .editor-shell textarea {
+        position: relative;
+        z-index: 1;
+      }
+      html[data-theme='onedark'] .sql-hl {
+        display: block;
+      }
+      html[data-theme='onedark'] .editor-shell textarea {
+        color: transparent;
+        caret-color: #abb2bf;
+      }
+      html[data-theme='onedark'] .editor-shell textarea::selection {
+        background: rgba(97, 175, 239, 0.25);
+      }
+      .tk-kw {
+        color: #61afef;
+      }
+      .tk-str {
+        color: #98c379;
+      }
+      .tk-cmt {
+        color: #7f848e;
+        font-style: italic;
+      }
+      .tk-num {
+        color: #d19a66;
+      }
+      .tk-fn {
+        color: #e5c07b;
       }
       /* ===== 配置弹窗（Modal）样式 ===== */
       .modal-overlay[hidden] {
@@ -108,6 +181,9 @@
         display: flex;
         flex-direction: column;
         gap: 4px;
+      }
+      .modal-card.modal-narrow {
+        max-width: 640px;
       }
       .modal-head {
         display: flex;
@@ -197,15 +273,16 @@
       .rule-layout {
         display: flex;
         gap: 12px;
-        min-height: 420px;
+        min-height: 460px;
       }
       .rule-left {
-        flex: 0 0 250px;
+        flex: 0 0 270px;
         overflow: auto;
         border: 1px solid var(--line);
         border-radius: 10px;
         padding: 10px 12px;
         box-sizing: border-box;
+        max-height: 60vh;
       }
       .rule-left .rule-group-title {
         font-size: 12px;
@@ -220,15 +297,16 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 13px;
-        padding: 4px 0;
+        font-size: 12px;
+        padding: 3px 0;
         cursor: pointer;
         user-select: none;
+        white-space: nowrap;
       }
       .rule-left input[type='checkbox'] {
         accent-color: var(--accent);
-        width: 14px;
-        height: 14px;
+        width: 13px;
+        height: 13px;
         flex: 0 0 auto;
       }
       .rule-mid,
@@ -319,7 +397,7 @@
           <span>SQL 方言</span>
           <select id="languageSelect"></select>
         </label>
-        <label>
+        <label id="keywordOption">
           <span>关键字</span>
           <select id="keywordCaseSelect">
             <option value="upper">大写</option>
@@ -334,20 +412,23 @@
             <option value="4">4 空格</option>
           </select>
         </label>
-        <label class="checkbox-label">
+        <label class="checkbox-label" id="denseOption">
           <input id="denseOperatorsInput" type="checkbox" />
           <span>紧凑运算符</span>
         </label>
         <div class="action-buttons">
+          <button id="engineButton" class="button ghost" type="button" title="引擎状态与 Java 路径">
+            引擎
+          </button>
+          <button id="settingsButton" class="button ghost" type="button" title="SQL 格式化规则配置">
+            规则
+          </button>
           <button id="pasteButton" class="button ghost" type="button" title="从剪贴板粘贴">
             粘贴
           </button>
           <button id="clearButton" class="button ghost" type="button">清空</button>
           <button id="formatButton" class="button primary" type="button" title="Ctrl + Enter">
             格式化
-          </button>
-          <button id="settingsButton" class="button ghost" type="button" title="格式化配置">
-            配置
           </button>
         </div>
       </section>
@@ -358,13 +439,16 @@
             <span>原始 SQL</span>
             <span id="inputStats" class="stats">0 字符</span>
           </div>
-          <textarea
-            id="inputSql"
-            spellcheck="false"
-            autocomplete="off"
-            placeholder="在这里输入或粘贴 SQL，将自动格式化…"
-            aria-label="原始 SQL"
-          ></textarea>
+          <div class="editor-shell">
+            <pre class="sql-hl" id="inputHl" aria-hidden="true"></pre>
+            <textarea
+              id="inputSql"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder="在这里输入或粘贴 SQL，将自动格式化…"
+              aria-label="原始 SQL"
+            ></textarea>
+          </div>
         </article>
 
         <article class="editor-panel output-panel">
@@ -372,13 +456,16 @@
             <span>格式化结果</span>
             <span id="outputStats" class="stats">等待格式化</span>
           </div>
-          <textarea
-            id="outputSql"
-            spellcheck="false"
-            readonly
-            placeholder="格式化结果会显示在这里"
-            aria-label="格式化结果"
-          ></textarea>
+          <div class="editor-shell">
+            <pre class="sql-hl" id="outputHl" aria-hidden="true"></pre>
+            <textarea
+              id="outputSql"
+              spellcheck="false"
+              readonly
+              placeholder="格式化结果会显示在这里"
+              aria-label="格式化结果"
+            ></textarea>
+          </div>
           <button id="copyButton" class="copy-button" type="button" disabled>复制结果</button>
         </article>
       </section>
@@ -391,12 +478,13 @@
       </footer>
     </main>
 
-    <div id="configModal" class="modal-overlay" hidden>
-      <div class="modal-card" role="dialog" aria-modal="true" aria-label="SQL 格式化配置">
+    <!-- 引擎状态 / Java 路径 弹窗 -->
+    <div id="engineModal" class="modal-overlay" hidden>
+      <div class="modal-card modal-narrow" role="dialog" aria-modal="true" aria-label="引擎配置">
         <div class="modal-head">
-          <h2>SQL 格式化配置</h2>
+          <h2>引擎配置</h2>
           <button
-            id="modalCloseButton"
+            id="engineModalCloseButton"
             class="modal-close"
             type="button"
             title="关闭"
@@ -405,7 +493,6 @@
             ✕
           </button>
         </div>
-
         <div class="config-section">
           <h3>引擎状态</h3>
           <div id="engineStatus" class="engine-status">检测中…</div>
@@ -415,7 +502,6 @@
           </div>
           <pre id="testOutput" class="test-output" hidden></pre>
         </div>
-
         <div class="config-section">
           <h3>Java 路径</h3>
           <span class="hint"
@@ -432,11 +518,28 @@
           </div>
           <span id="javaPathStatus" class="hint"></span>
         </div>
+      </div>
+    </div>
 
+    <!-- 规则配置弹窗（三栏：勾选 / 范本 / 效果） -->
+    <div id="configModal" class="modal-overlay" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-label="SQL 格式化规则配置">
+        <div class="modal-head">
+          <h2>SQL 格式化规则配置</h2>
+          <button
+            id="modalCloseButton"
+            class="modal-close"
+            type="button"
+            title="关闭"
+            aria-label="关闭"
+          >
+            ✕
+          </button>
+        </div>
         <div class="config-section">
-          <h3>SQL 格式化规则</h3>
+          <h3>格式化规则</h3>
           <span class="hint"
-            >左侧勾选规则，中间编辑 SQL 范本，右侧实时预览 wjz
+            >左侧勾选规则（完整列出，可滚动），中间编辑 SQL 范本，右侧实时预览 wjz
             引擎格式化效果；改动即保存生效。</span
           >
           <div class="rule-layout">
@@ -495,6 +598,7 @@
           try {
             localStorage.setItem(THEME_KEY, value)
           } catch (e) {}
+          rerenderAllHl()
         }
 
         function initTheme() {
@@ -509,6 +613,64 @@
           sel.addEventListener('change', () => applyTheme(sel.value))
         }
 
+        /* ================= One Dark SQL 语法高亮 ================= */
+        const KW_RE =
+          /\b(SELECT|FROM|WHERE|AND|OR|NOT|NULL|UNION|ALL|AS|CASE|WHEN|THEN|ELSE|END|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|ON|GROUP|BY|HAVING|ORDER|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|DROP|ALTER|TABLE|VIEW|INDEX|DISTINCT|MAX|MIN|SUM|COUNT|AVG|EXISTS|BETWEEN|LIKE|IN|IS|ASC|DESC|LIMIT|OFFSET|WITH|USING|PRIMARY|FOREIGN|KEY|CONSTRAINT|DEFAULT|IF|BEGIN|COMMIT|ROLLBACK|TRUNCATE)\b/i
+        const TOKEN_RE =
+          /('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")|(--[^\n]*|\/\*[\s\S]*?\*\/)|\b\d+(?:\.\d+)?\b|([A-Za-z_]\w*)(?=\s*\()|\b[A-Za-z_]\w*\b/g
+
+        function escapeHtml(s) {
+          return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        }
+
+        function highlightSql(text) {
+          let out = ''
+          let last = 0
+          let m
+          TOKEN_RE.lastIndex = 0
+          const src = String(text || '')
+          while ((m = TOKEN_RE.exec(src)) !== null) {
+            if (m.index > last) out += escapeHtml(src.slice(last, m.index))
+            const cls = m[1]
+              ? 'tk-str'
+              : m[2]
+                ? 'tk-cmt'
+                : m[3]
+                  ? 'tk-num'
+                  : m[4]
+                    ? 'tk-fn'
+                    : KW_RE.test(m[0])
+                      ? 'tk-kw'
+                      : 'tk-pl'
+            out += '<span class="' + cls + '">' + escapeHtml(m[0]) + '</span>'
+            last = m.index + m[0].length
+          }
+          if (last < src.length) out += escapeHtml(src.slice(last))
+          return out
+        }
+
+        function renderHl(hlEl, textarea) {
+          if (!hlEl || !textarea) return
+          hlEl.innerHTML = highlightSql(textarea.value) + '\u200b'
+          hlEl.scrollTop = textarea.scrollTop
+          hlEl.scrollLeft = textarea.scrollLeft
+        }
+
+        function bindHl(hlEl, textarea) {
+          if (!hlEl || !textarea) return
+          textarea.addEventListener('scroll', () => {
+            hlEl.scrollTop = textarea.scrollTop
+            hlEl.scrollLeft = textarea.scrollLeft
+          })
+          textarea.addEventListener('input', () => renderHl(hlEl, textarea))
+          renderHl(hlEl, textarea)
+        }
+
+        function rerenderAllHl() {
+          renderHl($('inputHl'), $('inputSql'))
+          renderHl($('outputHl'), $('outputSql'))
+        }
+
         /* ================= 配置弹窗 ================= */
         function setStatus(el, msg, ok) {
           if (!el) return
@@ -516,19 +678,40 @@
           el.style.color = ok === false ? 'var(--danger)' : ok === true ? 'var(--success)' : ''
         }
 
-        function openConfigModal() {
-          const modal = $('configModal')
+        function openModal(id) {
+          const modal = $(id)
           if (!modal) return
           modal.hidden = false
-          loadConfigView()
+          if (id === 'engineModal') loadEngineView()
+          if (id === 'configModal') loadConfigView()
         }
 
-        function closeConfigModal() {
-          const modal = $('configModal')
+        function closeModal(id) {
+          const modal = $(id)
           if (modal) modal.hidden = true
         }
 
-        /* ============ 规则配置器（17 项，对应 sqlFormat.cfg） ============ */
+        /* ============ 引擎配置 ============ */
+        function loadEngineView() {
+          const b = window.sqlFormatterBridge
+          if (!b) {
+            setStatus($('engineStatus'), '桥接不可用', false)
+            return
+          }
+          const diag = b.engineProbe()
+          const lines = []
+          lines.push(
+            'Java: ' + (diag.java || '未找到') + (diag.javaFrom ? '（' + diag.javaFrom + '）' : '')
+          )
+          lines.push('引擎 jar: ' + (diag.jar || '未找到'))
+          if (!diag.java) lines.push('诊断: 未找到 Java，请安装 JDK 8+ 或指定 java 路径')
+          setStatus($('engineStatus'), lines.join('\n'), !!diag.java)
+          const settings = b.readSettings()
+          $('javaPathInput').value = settings && settings.javaPath ? settings.javaPath : ''
+          $('testOutput').hidden = true
+        }
+
+        /* ============ 规则配置器（全量项，对应 sqlFormat.cfg 全部布尔配置） ============ */
         const RULE_GROUPS = [
           {
             title: '通用',
@@ -553,8 +736,117 @@
               ['ilinebreakBeforeAND', '关键字 and 前换行'],
               ['ilinebreakAfterAND', '关键字 and 后换行'],
               ['ilinebreakAfterFROM', '关键字 from 后换行'],
+              ['ilinebreakAfterWHERE', '关键字 where 后换行'],
               ['ilinebreakAfterGROUPBY', '关键字 group by 后换行'],
+              ['istackListGROUPBYWanted', 'group by 每组字段显示在一行'],
               ['ilinebreakAfterHAVING', '关键字 having 后换行']
+            ]
+          },
+          {
+            title: 'INSERT',
+            items: [
+              ['ilinebreakAfterInsertOfInto', 'insert 中 into 后换行'],
+              ['ilinebreakBeforeInsertOfValues', 'insert 中 values 前换行'],
+              ['ilinebreakBeforeOpenInsertBracketWanted', 'insert 中"("前换行'],
+              ['ilinebreakAfterOpenInsertBracketWanted', 'insert 中"("后换行'],
+              ['ilinebreakBeforeCloseInsertBracketWanted', 'insert 中")"前换行'],
+              ['ilinebreakAfterCloseInsertBracketWanted', 'insert 中")"后换行']
+            ]
+          },
+          {
+            title: 'JOIN / ON',
+            items: [
+              ['ilinebreakAfterJOINWanted', '关键字 join 后换行'],
+              ['ilinebreakBeforeJoinOnWanted', 'join 中 on 前换行'],
+              ['ilinebreakAfterONWanted', '关键字 on 后换行']
+            ]
+          },
+          {
+            title: 'ORDER BY',
+            items: [
+              ['ilinebreakAfterORDERBY', '关键字 order by 后换行'],
+              ['istackListORDERBYWanted', 'order by 每组字段显示在一行']
+            ]
+          },
+          {
+            title: 'SELECT',
+            items: [
+              ['ilinebreakAfterSELECT', '关键字 select 后换行'],
+              ['ilinebreakAfterSubSelectBrWanted', 'select 子查询"("后换行'],
+              ['ilinebreakBeforeSelectBrWanted', 'select 语句中"("前换行'],
+              ['ilinebreakBeforeCloseSelectBrWanted', 'select 语句中")"前换行'],
+              ['ilinebreakAfterCloseSelectBrWanted', 'select 语句中")"后换行']
+            ]
+          },
+          {
+            title: 'UPDATE',
+            items: [
+              ['ilinebreakAfterUPDATE', '关键字 update 后换行'],
+              ['ilinebreakBeforeSET', '关键字 set 前换行'],
+              ['ilinebreakAfterSET', '关键字 set 后换行']
+            ]
+          },
+          {
+            title: '表达式 / 其他',
+            items: [
+              ['ilinebreakBeforeConcatWanted', '关键字"||"前换行'],
+              ['ilinebreakAfterConcatWanted', '关键字"||"后换行'],
+              ['ilinebreakBeforeSemikolon', '关键字";"前换行'],
+              ['ilinebreakBeforeConditionBrWanted', '条件中"("前换行'],
+              ['ilinebreakAfterConditionBrWanted', '条件中"("后换行'],
+              ['ilinebreakBeforeCloseConditionBrWanted', '条件中")"前换行'],
+              ['ilinebreakAfterCloseConditionBrWanted', '条件中")"后换行'],
+              ['ilinebreakBeforeParaCommentWanted', '块注释前换行'],
+              ['ilinebreakBeforeLineCommentWanted', '行注释前换行'],
+              ['ilinebreakBeforeComma', '逗号","前换行'],
+              ['ilinebreakAfterComma', '逗号","后换行']
+            ]
+          },
+          {
+            title: 'CASE',
+            items: [
+              ['ilinebreakCaseAndOrWanted', 'case 中 and 或 or 前换行'],
+              ['ilinebreakCaseWhenNoExpressWanted', 'case when 之间无表达式也换行'],
+              ['ilinebreakCaseWanted', 'case 前换行'],
+              ['ilinebreakCaseElseWanted', 'else 前换行'],
+              ['ilinebreakCaseEndWanted', 'end 前换行'],
+              ['ilinebreakCaseThenWanted', 'then 前换行'],
+              ['ilinebreakCaseWhenWanted', 'when 前换行'],
+              ['ilinebreakBeforeOpenCaseBracketWanted', 'case 中"("前换行'],
+              ['ilinebreakAfterOpenCaseBracketWanted', 'case 中"("后换行'],
+              ['ilinebreakBeforeCloseCaseBracketWanted', 'case 中")"前换行'],
+              ['ilinebreakAfterCloseCaseBracketWanted', 'case 中")"后换行']
+            ]
+          },
+          {
+            title: '缩进',
+            items: [
+              ['idoubleIndentionMasterKeywordWanted', '关键字前 2 次缩进'],
+              ['iindentParaCommentWanted', '块注释缩进'],
+              ['iindentAfterSubSelectBrWanted', '子查询"("后缩进'],
+              ['iindentAfterConditionBrWanted', '条件中"("后缩进'],
+              ['iandOrIndentionWanted', 'and or 缩进'],
+              ['icaseElseIndentionWanted', 'case 中 else 缩进'],
+              ['icaseThenIndentionWanted', 'case 中 then 缩进'],
+              ['iindentCaseBracketWanted', 'case 中"("缩进'],
+              ['iindentInsertBracketWanted', 'insert 中"("缩进'],
+              ['isetIndentJoinOnWanted', 'join 中 on 缩进'],
+              ['isetIndentJoinWanted', 'join 缩进']
+            ]
+          },
+          {
+            title: '对齐',
+            items: [
+              ['ialignmentDeclarationWanted', '对齐 path 关键字'],
+              ['ialignmentAsWanted', '对齐 as 关键字'],
+              ['ialignmentCommaWanted', '对齐","关键字'],
+              ['ialignmentConcatWanted', '对齐"||"关键字'],
+              ['ialignmentAssociationOperatorWanted', '对齐"=>"操作符'],
+              ['ialignmentKeywordWanted', '对齐关键字'],
+              ['ialignmentOperatorWanted', '对齐加减乘除等操作符'],
+              ['ileftAlignParaCommentWanted', '块注释左对齐'],
+              ['ialignmentEqualWanted', '对齐比较操作符'],
+              ['ialignmentCommentWanted', '对齐注释']
             ]
           }
         ]
@@ -622,7 +914,7 @@
           }
         }
 
-        /** 根据勾选状态生成新的 cfg 全文（行级替换 17 键，保留其余配置） */
+        /** 根据勾选状态生成新的 cfg 全文（行级替换，保留其余配置） */
         function rulesToCfg(cfgText) {
           let out = cfgText || ''
           for (const key of RULE_KEYS) {
@@ -706,34 +998,26 @@
         function loadConfigView() {
           const b = window.sqlFormatterBridge
           if (!b) {
-            setStatus($('engineStatus'), '桥接不可用', false)
+            setStatus($('cfgStatus'), '桥接不可用', false)
             return
           }
-          // 引擎状态（静态探测，不执行 java）
-          const diag = b.engineProbe()
-          const lines = []
-          lines.push(
-            'Java: ' + (diag.java || '未找到') + (diag.javaFrom ? '（' + diag.javaFrom + '）' : '')
-          )
-          lines.push('引擎 jar: ' + (diag.jar || '未找到'))
-          if (!diag.java) lines.push('诊断: 未找到 Java，请安装 JDK 8+ 或指定 java 路径')
-          setStatus($('engineStatus'), lines.join('\n'), !!diag.java)
-          // Java 路径输入框
-          const settings = b.readSettings()
-          $('javaPathInput').value = settings && settings.javaPath ? settings.javaPath : ''
-          // 规则配置器
           if (!$('cfgSampleInput').value) $('cfgSampleInput').value = SAMPLE_SQL
           loadCfgIntoRules()
-          $('testOutput').hidden = true
           schedulePreview()
         }
 
         function bindButtons() {
-          $('settingsButton').addEventListener('click', openConfigModal)
-          $('modalCloseButton').addEventListener('click', closeConfigModal)
+          $('engineButton').addEventListener('click', () => openModal('engineModal'))
+          $('engineModalCloseButton').addEventListener('click', () => closeModal('engineModal'))
+          const engineModal = $('engineModal')
+          engineModal.addEventListener('click', (e) => {
+            if (e.target === engineModal) closeModal('engineModal')
+          })
+          $('settingsButton').addEventListener('click', () => openModal('configModal'))
+          $('modalCloseButton').addEventListener('click', () => closeModal('configModal'))
           const modal = $('configModal')
           modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeConfigModal()
+            if (e.target === modal) closeModal('configModal')
           })
           $('cfgSampleInput').addEventListener('input', schedulePreview)
           $('saveCfgButton').addEventListener('click', () => applyRules(true))
@@ -803,6 +1087,17 @@
         initTheme()
         buildRuleCheckboxes()
         bindButtons()
+        bindHl($('inputHl'), $('inputSql'))
+        bindHl($('outputHl'), $('outputSql'))
+        // 输出结果由 bundle 异步写入，轮询同步高亮层
+        let lastOut = ''
+        setInterval(() => {
+          const ta = $('outputSql')
+          if (ta && ta.value !== lastOut) {
+            lastOut = ta.value
+            renderHl($('outputHl'), ta)
+          }
+        }, 400)
         // 首次进入时静态探测引擎并更新页面底栏提示（不执行 java，不阻塞）
         try {
           const b = window.sqlFormatterBridge
@@ -811,7 +1106,7 @@
               const diag = b.engineProbe()
               const st = document.getElementById('statusText')
               if (st && diag && !diag.java) {
-                st.textContent = 'wjz 引擎不可用（未找到 Java），当前使用内置格式化，可点"配置"设置'
+                st.textContent = 'wjz 引擎不可用（未找到 Java），当前使用内置格式化，可点"引擎"设置'
               }
             }, 300)
           }

@@ -565,7 +565,7 @@
               aria-label="格式化结果"
             ></textarea>
           </div>
-          <button id="copyButton" class="copy-button" type="button" disabled>复制结果</button>
+          <button id="copyButton" class="copy-button" type="button">复制结果</button>
         </article>
       </section>
 
@@ -1337,15 +1337,60 @@
         bindButtons()
         bindHl($('inputHl'), $('inputSql'))
         bindHl($('outputHl'), $('outputSql'))
-        // 输出结果由 bundle 异步写入，轮询同步高亮层
+
+        // bundle 清空/粘贴/注入时直接改 textarea.value，不触发 input 事件，
+        // 轮询保证高亮层与文本始终一致（修复“清空后原始 SQL 残留”）
+        let lastIn = ''
         let lastOut = ''
         setInterval(() => {
-          const ta = $('outputSql')
-          if (ta && ta.value !== lastOut) {
-            lastOut = ta.value
-            renderHl($('outputHl'), ta)
+          const ita = $('inputSql')
+          if (ita && ita.value !== lastIn) {
+            lastIn = ita.value
+            renderHl($('inputHl'), ita)
           }
-        }, 400)
+          const ota = $('outputSql')
+          if (ota && ota.value !== lastOut) {
+            lastOut = ota.value
+            renderHl($('outputHl'), ota)
+          }
+          // bundle 在输出为空时禁用复制按钮，这里保持始终可点
+          const cb = $('copyButton')
+          if (cb && cb.disabled) cb.disabled = false
+        }, 300)
+
+        // 复制结果：接管点击（bundle 的复制走 clipboard API，若环境受限由 execCommand 兜底）
+        function copyOutputText() {
+          const val = $('outputSql').value
+          const st = $('statusText')
+          if (!val) {
+            if (st) st.textContent = '暂无格式化结果可复制'
+            return
+          }
+          const done = () => {
+            if (st) st.textContent = '已复制格式化结果'
+          }
+          const fail = () => {
+            try {
+              const ta = $('outputSql')
+              ta.focus()
+              ta.select()
+              if (document.execCommand('copy')) done()
+              else if (st) st.textContent = '复制失败'
+            } catch (e) {
+              if (st) st.textContent = '复制失败'
+            }
+          }
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(val).then(done).catch(fail)
+            } else {
+              fail()
+            }
+          } catch (e) {
+            fail()
+          }
+        }
+        $('copyButton').addEventListener('click', copyOutputText)
         // 首次进入时静态探测引擎并更新页面底栏提示（不执行 java，不阻塞）
         try {
           const b = window.sqlFormatterBridge

@@ -4,6 +4,7 @@ import { useToast } from '@/components'
 import { ACCOUNT_CHANGED_EVENT } from '@/composables/useZToolsAccount'
 import { weightedSearch } from '@/utils'
 import { AiProviderEditor, OfficialAiCredits } from './components'
+import { AccountLoginDialog } from '@/components/common'
 import { useZtoolsSubInput } from '@/composables'
 import type {
   AiInputModality,
@@ -25,6 +26,7 @@ const isCopyingProvider = ref(false)
 const officialProvider = ref<OfficialAiProviderStatus | null>(null)
 const officialError = ref('')
 const officialModelsExpanded = ref(false)
+const showOfficialLogin = ref(false)
 let officialProviderRequestId = 0
 const { value: searchQuery } = useZtoolsSubInput('', '搜索 AI 供应商或模型...')
 
@@ -339,7 +341,16 @@ onBeforeUnmount(() => {
               </div>
               <div class="official-status-chips">
                 <OfficialAiCredits v-if="officialProvider.loggedIn" />
-                <span v-else class="official-login-status"> 登录 ZTools 账号后可调用 </span>
+                <span v-else class="official-login-status">
+                  登录 ZTools 账号后可调用
+                  <button
+                    type="button"
+                    class="official-login-btn"
+                    @click="showOfficialLogin = true"
+                  >
+                    登录官方账号
+                  </button>
+                </span>
               </div>
             </header>
             <div class="official-model-table-wrap">
@@ -557,6 +568,8 @@ onBeforeUnmount(() => {
         @save="handleSave"
       />
     </Transition>
+
+    <AccountLoginDialog v-model:visible="showOfficialLogin" />
   </div>
 </template>
 
@@ -646,6 +659,26 @@ onBeforeUnmount(() => {
 .official-login-status {
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+.official-login-btn {
+  margin-left: 8px;
+  padding: 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+  color: var(--primary-color);
+  font-size: 12px;
+  line-height: 1.6;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.official-login-btn:hover {
+  background: var(--primary-color);
+  color: #fff;
 }
 
 .official-status-chips {

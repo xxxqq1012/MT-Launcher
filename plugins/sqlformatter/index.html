@@ -15,7 +15,7 @@
       #denseOption {
         display: none !important;
       }
-      /* ===== 主题：浅色 / 深色 / One Dark（覆盖 bundle CSS 变量） ===== */
+      /* ===== 主题变量：浅色 / 深色 / One Dark ===== */
       html[data-theme='light'] {
         color-scheme: light;
         --bg: #f4f1eb;
@@ -65,38 +65,98 @@
         background:
           radial-gradient(circle at 85% -10%, rgba(97, 175, 239, 0.1), transparent 42%), var(--bg);
       }
-      /* ===== 保持原页面样式：编辑器区域高度受限，不随窗口拉伸留白 ===== */
+      /* ===== SQL 编辑器语法高亮配色（按主题区分） ===== */
+      /* 浅色：参照白色 SQL 截图 */
+      :root,
+      html[data-theme='light'] {
+        --tk-kw: #800000;
+        --tk-tbl: #ff8080;
+        --tk-id: #006464;
+        --tk-str: #008000;
+        --tk-num: #0000ff;
+        --tk-fn: #8e00c6;
+        --tk-cmt: #ff0000;
+        --tk-pl: #000000;
+        --tk-caret: #000000;
+      }
+      /* 深色 / One Dark：参照黑色 SQL 截图 */
+      html[data-theme='dark'],
+      html[data-theme='onedark'] {
+        --tk-kw: #739eca;
+        --tk-tbl: #ff8080;
+        --tk-id: #00b8b8;
+        --tk-str: #cac580;
+        --tk-num: #00ff40;
+        --tk-fn: #b788d3;
+        --tk-cmt: #ff0000;
+        --tk-pl: #c8c8c8;
+        --tk-caret: #c8c8c8;
+      }
+      /* 跟随系统：自动匹配深浅 */
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme]) {
+          --tk-kw: #739eca;
+          --tk-tbl: #ff8080;
+          --tk-id: #00b8b8;
+          --tk-str: #cac580;
+          --tk-num: #00ff40;
+          --tk-fn: #b788d3;
+          --tk-cmt: #ff0000;
+          --tk-pl: #c8c8c8;
+          --tk-caret: #c8c8c8;
+        }
+      }
+      .tk-kw {
+        color: var(--tk-kw);
+      }
+      .tk-tbl {
+        color: var(--tk-tbl);
+      }
+      .tk-id {
+        color: var(--tk-id);
+      }
+      .tk-str {
+        color: var(--tk-str);
+      }
+      .tk-num {
+        color: var(--tk-num);
+      }
+      .tk-fn {
+        color: var(--tk-fn);
+      }
+      .tk-cmt {
+        color: var(--tk-cmt);
+        font-style: italic;
+      }
+      /* ===== 最大化布局：编辑区撑满窗口，底部状态栏留一行 ===== */
+      .app-shell {
+        height: 100vh;
+      }
       .workspace {
-        align-items: start;
+        align-items: stretch;
       }
-      .workspace .editor-panel textarea,
-      .workspace .editor-shell textarea {
-        max-height: 520px;
-      }
-      /* ===== 主题切换控件 ===== */
-      .theme-control {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-right: 10px;
-      }
-      .theme-control select {
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: transparent;
-        color: inherit;
-        font-size: 12px;
-        padding: 5px 8px;
-      }
-      /* ===== One Dark：SQL 编辑器语法高亮层 ===== */
-      .editor-shell {
-        position: relative;
+      .editor-panel .editor-shell {
         min-height: 0;
         display: flex;
         flex-direction: column;
-        flex: 1;
+        position: relative;
       }
-      .sql-hl {
+      .editor-panel .editor-shell textarea {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: 100% !important;
+        max-height: none !important;
+        resize: none;
+      }
+      /* 工具栏：除主题外其余按钮右对齐 */
+      .settings {
+        justify-content: flex-start;
+      }
+      .settings .action-buttons {
+        margin-left: auto;
+      }
+      /* ===== SQL 语法高亮叠加层（三种主题均启用） ===== */
+      .editor-shell .sql-hl {
         position: absolute;
         inset: 0;
         margin: 0;
@@ -114,42 +174,37 @@
         overflow: scroll;
         scrollbar-width: none;
         pointer-events: none;
-        color: #abb2bf;
+        color: var(--tk-pl);
         background: transparent;
-        display: none;
+        display: block;
+        z-index: 0;
       }
-      .sql-hl::-webkit-scrollbar {
+      .editor-shell .sql-hl::-webkit-scrollbar {
         display: none;
       }
       .editor-shell textarea {
         position: relative;
         z-index: 1;
-      }
-      html[data-theme='onedark'] .sql-hl {
-        display: block;
-      }
-      html[data-theme='onedark'] .editor-shell textarea {
         color: transparent;
-        caret-color: #abb2bf;
+        caret-color: var(--tk-caret);
       }
-      html[data-theme='onedark'] .editor-shell textarea::selection {
+      .editor-shell textarea::selection {
         background: rgba(97, 175, 239, 0.25);
       }
-      .tk-kw {
-        color: #61afef;
+      /* ===== 主题切换控件 ===== */
+      .theme-control {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-right: 10px;
       }
-      .tk-str {
-        color: #98c379;
-      }
-      .tk-cmt {
-        color: #7f848e;
-        font-style: italic;
-      }
-      .tk-num {
-        color: #d19a66;
-      }
-      .tk-fn {
-        color: #e5c07b;
+      .theme-control select {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: transparent;
+        color: inherit;
+        font-size: 12px;
+        padding: 5px 8px;
       }
       /* ===== 配置弹窗（Modal）样式 ===== */
       .modal-overlay[hidden] {
@@ -240,17 +295,20 @@
         flex-wrap: wrap;
         margin-top: 8px;
       }
+      .row input[type='text'],
+      .row input[type='number'],
+      .row select {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: transparent;
+        color: inherit;
+        font-size: 12px;
+        padding: 6px 8px;
+      }
       .row input[type='text'] {
         flex: 1;
         min-width: 240px;
         font-family: ui-monospace, Consolas, 'Courier New', monospace;
-        font-size: 12px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 7px 10px;
-        background: transparent;
-        color: inherit;
-        box-sizing: border-box;
       }
       .test-output {
         font-family: ui-monospace, Consolas, 'Courier New', monospace;
@@ -276,7 +334,7 @@
         min-height: 460px;
       }
       .rule-left {
-        flex: 0 0 270px;
+        flex: 0 0 300px;
         overflow: auto;
         border: 1px solid var(--line);
         border-radius: 10px;
@@ -344,6 +402,47 @@
       }
       .rule-right textarea[readonly] {
         color: var(--success);
+      }
+      /* ===== 非布尔参数控件（sqlFormat.cfg 附加参数） ===== */
+      .rule-params {
+        margin-top: 14px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 14px;
+        box-sizing: border-box;
+      }
+      .rule-params .params-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 10px 16px;
+      }
+      .rule-params .param-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        min-width: 0;
+      }
+      .rule-params .param-item label {
+        flex: 1;
+        opacity: 0.85;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .rule-params .param-item input[type='number'],
+      .rule-params .param-item select {
+        flex: 0 0 auto;
+        width: 170px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: transparent;
+        color: inherit;
+        font-size: 12px;
+        padding: 5px 8px;
+        box-sizing: border-box;
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
       }
       details.adv-cfg {
         margin-top: 12px;
@@ -521,7 +620,7 @@
       </div>
     </div>
 
-    <!-- 规则配置弹窗（三栏：勾选 / 范本 / 效果） -->
+    <!-- 规则配置弹窗（三栏：勾选 / 范本 / 效果 + 参数控件） -->
     <div id="configModal" class="modal-overlay" hidden>
       <div class="modal-card" role="dialog" aria-modal="true" aria-label="SQL 格式化规则配置">
         <div class="modal-head">
@@ -539,7 +638,7 @@
         <div class="config-section">
           <h3>格式化规则</h3>
           <span class="hint"
-            >左侧勾选规则（完整列出，可滚动），中间编辑 SQL 范本，右侧实时预览 wjz
+            >左侧勾选规则（完整列出，可上下左右滚动），中间编辑 SQL 范本，右侧实时预览 wjz
             引擎格式化效果；改动即保存生效。</span
           >
           <div class="rule-layout">
@@ -560,6 +659,10 @@
                 aria-label="格式化效果"
               ></textarea>
             </div>
+          </div>
+          <div class="rule-params">
+            <div class="rule-head"><span>其他参数（sqlFormat.cfg）</span></div>
+            <div class="params-grid" id="ruleParams"></div>
           </div>
           <div class="row">
             <button id="saveCfgButton" class="button primary" type="button">保存规则</button>
@@ -613,9 +716,14 @@
           sel.addEventListener('change', () => applyTheme(sel.value))
         }
 
-        /* ================= One Dark SQL 语法高亮 ================= */
-        const KW_RE =
-          /\b(SELECT|FROM|WHERE|AND|OR|NOT|NULL|UNION|ALL|AS|CASE|WHEN|THEN|ELSE|END|JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|ON|GROUP|BY|HAVING|ORDER|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|DROP|ALTER|TABLE|VIEW|INDEX|DISTINCT|MAX|MIN|SUM|COUNT|AVG|EXISTS|BETWEEN|LIKE|IN|IS|ASC|DESC|LIMIT|OFFSET|WITH|USING|PRIMARY|FOREIGN|KEY|CONSTRAINT|DEFAULT|IF|BEGIN|COMMIT|ROLLBACK|TRUNCATE)\b/i
+        /* ================= SQL 语法高亮（关键字/表名/字段/字符串/注释/数字/函数） ================= */
+        const KW_SET = new Set(
+          'SELECT FROM WHERE AND OR NOT NULL UNION ALL AS CASE WHEN THEN ELSE END JOIN LEFT RIGHT INNER OUTER FULL CROSS ON GROUP BY HAVING ORDER INSERT INTO VALUES UPDATE SET DELETE CREATE DROP ALTER TABLE VIEW INDEX DISTINCT EXISTS BETWEEN LIKE IN IS ASC DESC LIMIT OFFSET WITH USING PRIMARY FOREIGN KEY CONSTRAINT DEFAULT IF BEGIN COMMIT ROLLBACK TRUNCATE MAX MIN SUM COUNT AVG'.split(
+            /\s+/
+          )
+        )
+        const TBL_HINT_RE =
+          /\b(?:FROM|JOIN|UPDATE|INTO|DELETE\s+FROM|TRUNCATE\s+TABLE)\s+([A-Za-z_]\w*)/gi
         const TOKEN_RE =
           /('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")|(--[^\n]*|\/\*[\s\S]*?\*\/)|\b\d+(?:\.\d+)?\b|([A-Za-z_]\w*)(?=\s*\()|\b[A-Za-z_]\w*\b/g
 
@@ -623,25 +731,31 @@
           return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         }
 
+        function collectTableNames(src) {
+          const set = new Set()
+          let m
+          TBL_HINT_RE.lastIndex = 0
+          while ((m = TBL_HINT_RE.exec(src)) !== null) set.add(m[1].toLowerCase())
+          return set
+        }
+
         function highlightSql(text) {
+          const src = String(text || '')
+          const tables = collectTableNames(src)
           let out = ''
           let last = 0
           let m
           TOKEN_RE.lastIndex = 0
-          const src = String(text || '')
           while ((m = TOKEN_RE.exec(src)) !== null) {
             if (m.index > last) out += escapeHtml(src.slice(last, m.index))
-            const cls = m[1]
-              ? 'tk-str'
-              : m[2]
-                ? 'tk-cmt'
-                : m[3]
-                  ? 'tk-num'
-                  : m[4]
-                    ? 'tk-fn'
-                    : KW_RE.test(m[0])
-                      ? 'tk-kw'
-                      : 'tk-pl'
+            let cls
+            if (m[1]) cls = 'tk-str'
+            else if (m[2]) cls = 'tk-cmt'
+            else if (m[3]) cls = 'tk-num'
+            else if (m[4]) cls = 'tk-fn'
+            else if (KW_SET.has(m[0].toUpperCase())) cls = 'tk-kw'
+            else if (tables.has(m[0].toLowerCase())) cls = 'tk-tbl'
+            else cls = 'tk-id'
             out += '<span class="' + cls + '">' + escapeHtml(m[0]) + '</span>'
             last = m.index + m[0].length
           }
@@ -711,79 +825,79 @@
           $('testOutput').hidden = true
         }
 
-        /* ============ 规则配置器（全量项，对应 sqlFormat.cfg 全部布尔配置） ============ */
+        /* ============ 规则配置器（全量项，与 sqlFormat.cfg 全部配置一一对应） ============ */
         const RULE_GROUPS = [
           {
             title: '通用',
             items: [
               ['ishowPseudoCodeWanted', '是否代码折叠'],
-              ['iuseTabWanted', '是否使用 tab'],
+              ['iuseTabWanted', '是否使用tab'],
               ['ikeepEmptyLinesWanted', '是否保留空行'],
-              ['idoubleLinebreakUNIONWanted', '关键字 union 前后空一行'],
-              ['iput1SpaceAfterCommaWanted', '关键字","后插入 1 空格'],
-              ['ireplaceCommentWanted', '单行注释替换成块注释'],
+              ['idoubleLinebreakUNIONWanted', '是否关键字union前后空一行'],
+              ['iput1SpaceAfterCommaWanted', '是否关键字","后插入 1 空格'],
+              ['ireplaceCommentWanted', '是否单行注释替换成块注释'],
               ['ishowIndentWanted', '是否显示缩进'],
               ['ishowLineNumber', '是否显示行号'],
               ['isuppressCommentWanted', '是否移除注释'],
-              ['ioneLineSQLWanted', '是否输出一行 SQL'],
-              ['isuppressLinebreakWanted', '避免多次换行'],
-              ['isuppressSpacesWanted', '避免多次空格']
+              ['ioneLineSQLWanted', '是否输出一行sql'],
+              ['isuppressLinebreakWanted', '是否避免多次换行'],
+              ['isuppressSpacesWanted', '是否避免多次空格']
             ]
           },
           {
             title: '关键字换行',
             items: [
-              ['ilinebreakBeforeAND', '关键字 and 前换行'],
-              ['ilinebreakAfterAND', '关键字 and 后换行'],
-              ['ilinebreakAfterFROM', '关键字 from 后换行'],
-              ['ilinebreakAfterWHERE', '关键字 where 后换行'],
-              ['ilinebreakAfterGROUPBY', '关键字 group by 后换行'],
-              ['istackListGROUPBYWanted', 'group by 每组字段显示在一行'],
-              ['ilinebreakAfterHAVING', '关键字 having 后换行']
+              ['ilinebreakBeforeAND', '关键字and前换行'],
+              ['ilinebreakAfterAND', '关键字and后换行'],
+              ['ilinebreakAfterFROM', '关键字from后换行'],
+              ['ilinebreakAfterGROUPBY', '关键字group by后换行'],
+              ['istackListGROUPBYWanted', '关键字group by每组字段显示在一行，受","前后换行影响'],
+              ['ilinebreakAfterHAVING', '关键字having后换行'],
+              ['ilinebreakAfterWHERE', '关键字where后换行']
             ]
           },
           {
             title: 'INSERT',
             items: [
-              ['ilinebreakAfterInsertOfInto', 'insert 中 into 后换行'],
-              ['ilinebreakBeforeInsertOfValues', 'insert 中 values 前换行'],
-              ['ilinebreakBeforeOpenInsertBracketWanted', 'insert 中"("前换行'],
-              ['ilinebreakAfterOpenInsertBracketWanted', 'insert 中"("后换行'],
-              ['ilinebreakBeforeCloseInsertBracketWanted', 'insert 中")"前换行'],
-              ['ilinebreakAfterCloseInsertBracketWanted', 'insert 中")"后换行']
+              ['ilinebreakAfterInsertOfInto', '关键字insert语句中into后换行'],
+              ['ilinebreakBeforeInsertOfValues', '关键字insert语句中values前换行'],
+              ['ilinebreakBeforeOpenInsertBracketWanted', '关键字insert语句中"(“前换行'],
+              ['ilinebreakAfterOpenInsertBracketWanted', '关键字insert语句中"(“后换行'],
+              ['ilinebreakBeforeCloseInsertBracketWanted', '关键字insert语句中”)“前换行'],
+              ['ilinebreakAfterCloseInsertBracketWanted', '关键字insert语句中”)“后换行']
             ]
           },
           {
             title: 'JOIN / ON',
             items: [
-              ['ilinebreakAfterJOINWanted', '关键字 join 后换行'],
-              ['ilinebreakBeforeJoinOnWanted', 'join 中 on 前换行'],
-              ['ilinebreakAfterONWanted', '关键字 on 后换行']
+              ['ilinebreakAfterJOINWanted', '关键字join后换行'],
+              ['ilinebreakBeforeJoinOnWanted', '关键字join语句on前换行'],
+              ['ilinebreakAfterONWanted', '关键字join语句on后换行']
             ]
           },
           {
             title: 'ORDER BY',
             items: [
-              ['ilinebreakAfterORDERBY', '关键字 order by 后换行'],
-              ['istackListORDERBYWanted', 'order by 每组字段显示在一行']
+              ['ilinebreakAfterORDERBY', '关键字order by后换行'],
+              ['istackListORDERBYWanted', '关键字order by每组字段显示在一行，受","前后换行影响']
             ]
           },
           {
             title: 'SELECT',
             items: [
-              ['ilinebreakAfterSELECT', '关键字 select 后换行'],
-              ['ilinebreakAfterSubSelectBrWanted', 'select 子查询"("后换行'],
-              ['ilinebreakBeforeSelectBrWanted', 'select 语句中"("前换行'],
-              ['ilinebreakBeforeCloseSelectBrWanted', 'select 语句中")"前换行'],
-              ['ilinebreakAfterCloseSelectBrWanted', 'select 语句中")"后换行']
+              ['ilinebreakAfterSELECT', '关键字select后换行'],
+              ['ilinebreakAfterSubSelectBrWanted', '关键字select子查询"(“后换行'],
+              ['ilinebreakBeforeSelectBrWanted', '关键字select语句中"(“ 前换行'],
+              ['ilinebreakBeforeCloseSelectBrWanted', '关键字select语句中”)“ 前换行'],
+              ['ilinebreakAfterCloseSelectBrWanted', '关键字select语句中”)“ 后换行']
             ]
           },
           {
             title: 'UPDATE',
             items: [
-              ['ilinebreakAfterUPDATE', '关键字 update 后换行'],
-              ['ilinebreakBeforeSET', '关键字 set 前换行'],
-              ['ilinebreakAfterSET', '关键字 set 后换行']
+              ['ilinebreakAfterUPDATE', '关键字update后换行'],
+              ['ilinebreakBeforeSET', '关键字update语句中set前换行'],
+              ['ilinebreakAfterSET', '关键字update语句中set后换行']
             ]
           },
           {
@@ -792,12 +906,12 @@
               ['ilinebreakBeforeConcatWanted', '关键字"||"前换行'],
               ['ilinebreakAfterConcatWanted', '关键字"||"后换行'],
               ['ilinebreakBeforeSemikolon', '关键字";"前换行'],
-              ['ilinebreakBeforeConditionBrWanted', '条件中"("前换行'],
-              ['ilinebreakAfterConditionBrWanted', '条件中"("后换行'],
-              ['ilinebreakBeforeCloseConditionBrWanted', '条件中")"前换行'],
-              ['ilinebreakAfterCloseConditionBrWanted', '条件中")"后换行'],
-              ['ilinebreakBeforeParaCommentWanted', '块注释前换行'],
-              ['ilinebreakBeforeLineCommentWanted', '行注释前换行'],
+              ['ilinebreakBeforeConditionBrWanted', '条件中"(“ 前换行'],
+              ['ilinebreakAfterConditionBrWanted', '条件中"(“ 后换行'],
+              ['ilinebreakBeforeCloseConditionBrWanted', '条件中”)“ 前换行'],
+              ['ilinebreakAfterCloseConditionBrWanted', '条件中”)“ 后换行'],
+              ['ilinebreakBeforeParaCommentWanted', '注释-块注释前换行'],
+              ['ilinebreakBeforeLineCommentWanted', '注释-行注释前换行'],
               ['ilinebreakBeforeComma', '逗号","前换行'],
               ['ilinebreakAfterComma', '逗号","后换行']
             ]
@@ -805,46 +919,46 @@
           {
             title: 'CASE',
             items: [
-              ['ilinebreakCaseAndOrWanted', 'case 中 and 或 or 前换行'],
-              ['ilinebreakCaseWhenNoExpressWanted', 'case when 之间无表达式也换行'],
-              ['ilinebreakCaseWanted', 'case 前换行'],
-              ['ilinebreakCaseElseWanted', 'else 前换行'],
-              ['ilinebreakCaseEndWanted', 'end 前换行'],
-              ['ilinebreakCaseThenWanted', 'then 前换行'],
-              ['ilinebreakCaseWhenWanted', 'when 前换行'],
-              ['ilinebreakBeforeOpenCaseBracketWanted', 'case 中"("前换行'],
-              ['ilinebreakAfterOpenCaseBracketWanted', 'case 中"("后换行'],
-              ['ilinebreakBeforeCloseCaseBracketWanted', 'case 中")"前换行'],
-              ['ilinebreakAfterCloseCaseBracketWanted', 'case 中")"后换行']
+              ['ilinebreakCaseAndOrWanted', 'case语句中and或or前换行'],
+              ['ilinebreakCaseWhenNoExpressWanted', 'case语句中case then之间无表达式时也行换行'],
+              ['ilinebreakCaseWanted', 'case语句中case前换行'],
+              ['ilinebreakCaseElseWanted', 'case语句中else前换行'],
+              ['ilinebreakCaseEndWanted', 'case语句中end前换行'],
+              ['ilinebreakCaseThenWanted', 'case语句中then前换行'],
+              ['ilinebreakCaseWhenWanted', 'case语句中when前换行'],
+              ['ilinebreakBeforeOpenCaseBracketWanted', 'case语句中"(“前换行'],
+              ['ilinebreakAfterOpenCaseBracketWanted', 'case语句中"(“后换行'],
+              ['ilinebreakBeforeCloseCaseBracketWanted', 'case语句中”)“前换行'],
+              ['ilinebreakAfterCloseCaseBracketWanted', 'case语句中”)“后换行']
             ]
           },
           {
             title: '缩进',
             items: [
-              ['idoubleIndentionMasterKeywordWanted', '关键字前 2 次缩进'],
+              ['idoubleIndentionMasterKeywordWanted', '关键字前2次缩进'],
               ['iindentParaCommentWanted', '块注释缩进'],
-              ['iindentAfterSubSelectBrWanted', '子查询"("后缩进'],
-              ['iindentAfterConditionBrWanted', '条件中"("后缩进'],
-              ['iandOrIndentionWanted', 'and or 缩进'],
-              ['icaseElseIndentionWanted', 'case 中 else 缩进'],
-              ['icaseThenIndentionWanted', 'case 中 then 缩进'],
-              ['iindentCaseBracketWanted', 'case 中"("缩进'],
-              ['iindentInsertBracketWanted', 'insert 中"("缩进'],
-              ['isetIndentJoinOnWanted', 'join 中 on 缩进'],
-              ['isetIndentJoinWanted', 'join 缩进']
+              ['iindentAfterSubSelectBrWanted', '子查询"(“后缩进'],
+              ['iindentAfterConditionBrWanted', '条件中"(“ 后缩进'],
+              ['iandOrIndentionWanted', '语句and or缩进'],
+              ['icaseElseIndentionWanted', '语句case中else缩进'],
+              ['icaseThenIndentionWanted', '语句case中then缩进'],
+              ['iindentCaseBracketWanted', '语句case中"(“缩进'],
+              ['iindentInsertBracketWanted', '语句insert中"(“缩进'],
+              ['isetIndentJoinOnWanted', '语句join中on缩进'],
+              ['isetIndentJoinWanted', '语句join缩进']
             ]
           },
           {
             title: '对齐',
             items: [
-              ['ialignmentDeclarationWanted', '对齐 path 关键字'],
-              ['ialignmentAsWanted', '对齐 as 关键字'],
+              ['ialignmentDeclarationWanted', '对齐PATH关键字'],
+              ['ialignmentAsWanted', '对齐as关键字'],
               ['ialignmentCommaWanted', '对齐","关键字'],
               ['ialignmentConcatWanted', '对齐"||"关键字'],
               ['ialignmentAssociationOperatorWanted', '对齐"=>"操作符'],
               ['ialignmentKeywordWanted', '对齐关键字'],
-              ['ialignmentOperatorWanted', '对齐加减乘除等操作符'],
-              ['ileftAlignParaCommentWanted', '块注释左对齐'],
+              ['ialignmentOperatorWanted', '对齐加减乘除等计算操作符'],
+              ['ileftAlignParaCommentWanted', '对齐块注释-左对齐'],
               ['ialignmentEqualWanted', '对齐比较操作符'],
               ['ialignmentCommentWanted', '对齐注释']
             ]
@@ -852,13 +966,73 @@
         ]
         const RULE_KEYS = RULE_GROUPS.flatMap((g) => g.items.map((i) => i[0]))
 
+        /* 非布尔参数（sqlFormat.cfg 附加配置） */
+        const PARAM_SPECS = [
+          {
+            key: 'upperAndLowerCaseStyle',
+            label: 'sql字符大小写样式',
+            type: 'select',
+            options: [
+              ['0', '保持原样'],
+              ['1', '关键字大写'],
+              ['2', '关键字小写']
+            ]
+          },
+          { key: 'ilineLengthWanted', label: '一行多少字符', type: 'number' },
+          {
+            key: 'inbrCommasWanted',
+            label: '多少个字段，一行多少个","，需在逗号后换行生效',
+            type: 'number'
+          },
+          {
+            key: 'inbrCommasInListWanted',
+            label: '多少个字段，列表in中一行多少个","，需在逗号后换行生效',
+            type: 'number'
+          },
+          {
+            key: 'ibracketSpacesWanted',
+            label: '括号"()"前后空格样式',
+            type: 'select',
+            options: [
+              ['oneSpaceOutsideBracket', '括号外 1 空格'],
+              ['oneSpaceInsideBracket', '括号内 1 空格'],
+              ['oneSpaceBeforeBracket', '括号前 1 空格'],
+              ['oneSpaceAfterBracket', '括号后 1 空格'],
+              ['noSpace', '无空格']
+            ]
+          },
+          {
+            key: 'iequalSpacesWanted',
+            label: '操作符前后空格',
+            type: 'select',
+            options: [
+              ['oneSpaceAroundEqual', '两侧各 1 空格'],
+              ['oneSpaceBeforeEqual', '前 1 空格'],
+              ['oneSpaceAfterEqual', '后 1 空格'],
+              ['noSpace', '无空格']
+            ]
+          },
+          { key: 'iSpacesPerLvlWanted', label: '缩进空格数', type: 'number' },
+          {
+            key: 'icommaSpacesWanted',
+            label: '逗号","前后空格样式',
+            type: 'select',
+            options: [
+              ['oneSpaceAfterComma', '逗号后 1 空格'],
+              ['oneSpaceBeforeComma', '逗号前 1 空格'],
+              ['oneSpaceAroundComma', '两侧各 1 空格'],
+              ['noSpace', '无空格']
+            ]
+          }
+        ]
+
         const SAMPLE_SQL = [
           '-- 查询sql',
           'SELECT COLUMN1,COLUMN2,COLUMN3,COLUMN4,COLUMN5',
           'FROM tab5',
           'WHERE COLUMN1>0 AND COLUMN3=1',
           'UNION ALL',
-          'SELECT tab12.column111,tab12.column101 || tab3.column301 AS COLUMN2',
+          'SELECT tab12.column111,tab12.column101 || tab3.column301 AS COLUMN1,concat(tab12.column201,tab3.column302) AS COLUMN2,',
           'CASE tab3.column301 WHEN tab3.column311 THEN COLUMN321',
           'WHEN tab3.column331 THEN COLUMN331',
           'CASE WHEN tab3.column401=COLUMN402 THEN tab3.column401 WHEN tab3.column401=COLUMN403 THEN tab3.column403 END',
@@ -907,6 +1081,39 @@
           })
         }
 
+        function buildRuleParams() {
+          const wrap = $('ruleParams')
+          wrap.innerHTML = ''
+          for (const spec of PARAM_SPECS) {
+            const item = document.createElement('div')
+            item.className = 'param-item'
+            const lab = document.createElement('label')
+            lab.textContent = spec.label
+            lab.title = spec.label
+            item.appendChild(lab)
+            if (spec.type === 'number') {
+              const input = document.createElement('input')
+              input.type = 'number'
+              input.step = '1'
+              input.dataset.param = spec.key
+              item.appendChild(input)
+            } else if (spec.type === 'select') {
+              const sel = document.createElement('select')
+              sel.dataset.param = spec.key
+              for (const [val, text] of spec.options) {
+                const op = document.createElement('option')
+                op.value = val
+                op.textContent = text
+                sel.appendChild(op)
+              }
+              item.appendChild(sel)
+            }
+            wrap.appendChild(item)
+          }
+          wrap.addEventListener('change', schedulePreview)
+          wrap.addEventListener('input', schedulePreview)
+        }
+
         function syncCheckboxes(cfgText) {
           for (const cb of document.querySelectorAll('#ruleCheckboxes input[data-cfg]')) {
             const m = new RegExp('^' + cb.dataset.cfg + '=(true|false)', 'm').exec(cfgText || '')
@@ -914,8 +1121,36 @@
           }
         }
 
-        /** 根据勾选状态生成新的 cfg 全文（行级替换，保留其余配置） */
-        function rulesToCfg(cfgText) {
+        function syncParams(cfgText) {
+          for (const spec of PARAM_SPECS) {
+            const ctrl = document.querySelector('#ruleParams [data-param="' + spec.key + '"]')
+            if (!ctrl) continue
+            const m = new RegExp('^' + spec.key + '=(.*)$', 'm').exec(cfgText || '')
+            const val = m ? m[1].trim() : ''
+            if (ctrl.tagName === 'SELECT') {
+              let found = false
+              for (const op of ctrl.options) {
+                if (op.value === val) {
+                  ctrl.value = val
+                  found = true
+                  break
+                }
+              }
+              if (!found && val) {
+                const op = document.createElement('option')
+                op.value = val
+                op.textContent = val + '（当前值）'
+                ctrl.appendChild(op)
+                ctrl.value = val
+              }
+            } else {
+              ctrl.value = val
+            }
+          }
+        }
+
+        /** 根据界面控件生成新的 cfg 全文（行级替换，保留注释与其他行） */
+        function controlsToCfg(cfgText) {
           let out = cfgText || ''
           for (const key of RULE_KEYS) {
             const cb = document.querySelector('#ruleCheckboxes input[data-cfg="' + key + '"]')
@@ -925,6 +1160,17 @@
               out = out.replace(re, key + '=' + val)
             } else {
               out += '\n' + key + '=' + val
+            }
+          }
+          for (const spec of PARAM_SPECS) {
+            const ctrl = document.querySelector('#ruleParams [data-param="' + spec.key + '"]')
+            if (!ctrl) continue
+            const val = String(ctrl.value).trim()
+            const re = new RegExp('^' + spec.key + '=.*$', 'm')
+            if (re.test(out)) {
+              out = out.replace(re, spec.key + '=' + val)
+            } else {
+              out += '\n' + spec.key + '=' + val
             }
           }
           return out
@@ -976,6 +1222,7 @@
             cfg = b.readBundledConfigFile() || ''
           }
           syncCheckboxes(cfg)
+          syncParams(cfg)
           $('cfgEditor').value = cfg
         }
 
@@ -983,7 +1230,7 @@
           const b = window.sqlFormatterBridge
           if (!b) return false
           const base = b.readSqlConfigFile() || b.readBundledConfigFile() || ''
-          const newCfg = rulesToCfg(base)
+          const newCfg = controlsToCfg(base)
           const ok = b.writeSqlConfigFile(newCfg)
           $('cfgEditor').value = newCfg
           if (ok) {
@@ -1086,6 +1333,7 @@
 
         initTheme()
         buildRuleCheckboxes()
+        buildRuleParams()
         bindButtons()
         bindHl($('inputHl'), $('inputSql'))
         bindHl($('outputHl'), $('outputSql'))

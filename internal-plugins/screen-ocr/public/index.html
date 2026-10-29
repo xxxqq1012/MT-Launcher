@@ -131,82 +131,33 @@
         opacity: 0.55;
         cursor: not-allowed;
       }
-      /* ── 贴屏悬浮窗（独立置顶窗口） ── */
+      /* ── 贴屏悬浮窗（独立置顶窗口 · 纯图片 · 可拖动） ── */
       body.float-ui {
         background: #0f172a;
-        color: #e2e8f0;
         min-height: 100vh;
         overflow: hidden;
+        -webkit-app-region: drag;
+        user-select: none;
+        cursor: move;
       }
       .float-wrap {
-        display: flex;
-        flex-direction: column;
         height: 100vh;
-        padding: 10px;
-        gap: 8px;
+        padding: 4px;
       }
       .float-preview {
-        flex: 1;
-        min-height: 0;
+        height: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
         overflow: hidden;
         background: #1e293b;
         border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
       }
       .float-preview img {
         max-width: 100%;
         max-height: 100%;
         object-fit: contain;
-      }
-      .float-toolbar {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        justify-content: center;
-      }
-      .float-toolbar .btn {
-        padding: 6px 12px;
-        font-size: 12px;
-        border-radius: 6px;
-        background: #334155;
-        border-color: #475569;
-        color: #e2e8f0;
-      }
-      .float-toolbar .btn:hover {
-        background: #475569;
-      }
-      .float-toolbar .btn.green {
-        background: #059669;
-        border-color: #059669;
-        color: #fff;
-      }
-      .float-toolbar .btn.purple {
-        background: #7c3aed;
-        border-color: #7c3aed;
-        color: #fff;
-      }
-      .float-result {
-        display: none;
-        max-height: 120px;
-        overflow: auto;
-        background: #1e293b;
-        border-radius: 8px;
-        padding: 8px 10px;
-        font-size: 12px;
-        line-height: 1.6;
-        color: #cbd5e1;
-        white-space: pre-wrap;
-        word-break: break-all;
-      }
-      .float-result.show {
-        display: block;
-      }
-      .float-status {
-        font-size: 11px;
-        color: #94a3b8;
-        text-align: center;
       }
     </style>
   </head>
@@ -228,18 +179,9 @@
     </div>
     <div class="tip">识别在本地完成，图片不会上传到任何服务器。支持中文、英文与常用符号。</div>
 
-    <!-- 贴屏悬浮窗 UI：独立置顶窗口专用 -->
+    <!-- 贴屏悬浮窗 UI：独立置顶窗口专用（纯图片，可拖动，Esc 关闭） -->
     <div class="float-wrap" id="floatWrap" style="display: none">
       <div class="float-preview"><img id="floatImg" alt="截图预览" /></div>
-      <div class="float-toolbar">
-        <button id="fRecognizeBtn" class="btn green">识别文字</button>
-        <button id="fTranslateBtn" class="btn purple">识别并翻译</button>
-        <button id="fCopyBtn" class="btn">复制图片</button>
-        <button id="fReshootBtn" class="btn">重新截图</button>
-        <button id="fCloseBtn" class="btn">关闭</button>
-      </div>
-      <div class="float-result" id="floatResult"></div>
-      <div class="float-status" id="floatStatus"></div>
     </div>
 
     <script>
@@ -247,104 +189,47 @@
         var isFloatWin = new URLSearchParams(window.location.search).get('way') === 'screen-float'
 
         if (isFloatWin) {
-          // ─────────── 贴屏悬浮窗逻辑（独立置顶窗口） ───────────
+          // ─────────── 贴屏悬浮窗逻辑（纯图片 · 可拖动 · Esc 关闭） ───────────
           document.body.classList.add('float-ui')
-          document.getElementById('floatWrap').style.display = 'flex'
+          document.getElementById('floatWrap').style.display = 'block'
           var imgEl = document.getElementById('floatImg')
-          var resultEl = document.getElementById('floatResult')
-          var statusEl = document.getElementById('floatStatus')
+          var myToken = new URLSearchParams(window.location.search).get('token') || ''
           var currentImage = localStorage.getItem('mtScreenFloatImage') || ''
+          var closed = false
 
-          function showStatus(msg) {
-            statusEl.textContent = msg
+          function closeSelf() {
+            if (closed) return
+            closed = true
+            try {
+              localStorage.removeItem('mtScreenFloatImage')
+            } catch (e) {}
+            try {
+              window.close()
+            } catch (e) {
+              window.location.href = 'about:blank'
+            }
           }
 
           if (currentImage) {
             imgEl.src = currentImage
-            showStatus('已悬浮 · 可识别/翻译/复制')
-          } else {
-            showStatus('没有截图数据，请重新截图')
           }
 
-          async function doOcr(callback) {
-            if (!currentImage) {
-              showStatus('没有截图数据')
-              return
-            }
-            showStatus('正在识别文字…')
+          // Esc 关闭悬浮窗
+          document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeSelf()
+          })
+
+          // 被新截图替换（主窗口每次创建新悬浮窗前递增 token）时自动关闭旧窗
+          var pollTimer = setInterval(function () {
             try {
-              var res = await window.ztools.ocrRecognize(currentImage)
-              if (res && res.success) {
-                resultEl.textContent = res.text || '未识别到文字'
-                resultEl.classList.add('show')
-                showStatus('识别完成')
-                if (callback) callback(res.text || '')
-              } else {
-                showStatus('识别失败: ' + (res && res.error ? res.error : '未知错误'))
-              }
-            } catch (e) {
-              console.error('[ScreenOcr] 识别调用失败:', e)
-              showStatus('识别调用失败')
-            }
-          }
+              var cur = localStorage.getItem('mtScreenFloatToken') || ''
+              if (cur && myToken && cur !== myToken) closeSelf()
+            } catch (e) {}
+            if (closed) clearInterval(pollTimer)
+          }, 600)
 
-          // 识别文字
-          document.getElementById('fRecognizeBtn').addEventListener('click', function () {
-            doOcr(null)
-          })
-
-          // 识别并翻译 → 自动跳转聚合翻译
-          document.getElementById('fTranslateBtn').addEventListener('click', function () {
-            doOcr(function (text) {
-              if (!text) return
-              try {
-                var ok = window.ztools.redirect(['聚合翻译', '翻译'], text)
-                if (ok !== false) showStatus('已跳转到聚合翻译')
-                else showStatus('跳转翻译失败，请确认已安装「聚合翻译」')
-              } catch (e) {
-                console.error('[ScreenOcr] 跳转翻译失败:', e)
-                showStatus('跳转翻译失败')
-              }
-            })
-          })
-
-          // 复制图片（MT copy-image 支持 dataURL）
-          document.getElementById('fCopyBtn').addEventListener('click', function () {
-            if (!currentImage) return
-            if (typeof window.utools.copyImage === 'function') {
-              window.utools.copyImage(currentImage)
-              showStatus('已复制图片到剪贴板')
-            } else {
-              showStatus('当前环境不支持复制图片')
-            }
-          })
-
-          // 重新截图
-          document.getElementById('fReshootBtn').addEventListener('click', function () {
-            showStatus('正在框选屏幕区域…')
-            try {
-              window.ztools.screenCapture(function (img) {
-                if (!img) {
-                  showStatus('已取消截图')
-                  return
-                }
-                currentImage = img
-                localStorage.setItem('mtScreenFloatImage', img)
-                imgEl.src = img
-                resultEl.textContent = ''
-                resultEl.classList.remove('show')
-                showStatus('已重新截图 · 可识别/翻译/复制')
-              })
-            } catch (e) {
-              console.error('[ScreenOcr] 重新截图失败:', e)
-              showStatus('重新截图失败')
-            }
-          })
-
-          // 关闭悬浮窗
-          document.getElementById('fCloseBtn').addEventListener('click', function () {
-            localStorage.removeItem('mtScreenFloatImage')
-            window.close()
+          window.addEventListener('beforeunload', function () {
+            clearInterval(pollTimer)
           })
           return
         }
@@ -375,7 +260,7 @@
             badgeEl.classList.add('translate')
           } else if (m === 'float') {
             titleEl.textContent = '截图悬浮'
-            badgeEl.textContent = '贴屏置顶 · 可识别/翻译'
+            badgeEl.textContent = '纯图片 · 可拖动 · Esc 关闭'
             badgeEl.classList.remove('translate')
           } else {
             titleEl.textContent = '截图识别'
@@ -401,42 +286,49 @@
           }
         }
 
-        // 创建贴屏置顶悬浮窗（右下角）
+        // 创建贴屏置顶悬浮窗（默认右下角，可拖动到任意位置）
         function showFloatWindow(dataURL) {
           var img = new Image()
           img.onload = function () {
             var natW = img.naturalWidth || img.width || 400
             var natH = img.naturalHeight || img.height || 300
             var maxW = 520
-            var maxH = Math.max(220, window.screen.availHeight - 120)
+            var maxH = Math.max(220, window.screen.availHeight - 80)
             var scale = Math.min(1, maxW / natW, maxH / natH)
-            var w = Math.max(240, Math.round(natW * scale))
-            var h = Math.round(natH * scale) + 104 // 底部工具栏与状态区
+            var w = Math.max(200, Math.round(natW * scale))
+            var h = Math.max(120, Math.round(natH * scale))
             var s = window.screen
             var x = Math.max(s.availLeft || 0, (s.availLeft || 0) + (s.availWidth || 0) - w - 20)
             var y = Math.max(s.availTop || 0, (s.availTop || 0) + (s.availHeight || 0) - h - 20)
 
             localStorage.setItem('mtScreenFloatImage', dataURL)
+            // token 递增：旧悬浮窗检测到变化后自动关闭，避免窗口堆积
+            var token = String(Date.now())
+            localStorage.setItem('mtScreenFloatToken', token)
 
             try {
-              var win = window.ztools.createBrowserWindow('index.html?way=screen-float', {
-                width: w,
-                height: h,
-                x: x,
-                y: y,
-                frame: false,
-                resizable: false,
-                alwaysOnTop: true,
-                skipTaskbar: true,
-                show: false,
-                backgroundColor: '#0f172a'
-              })
+              var win = window.ztools.createBrowserWindow(
+                'index.html?way=screen-float&token=' + encodeURIComponent(token),
+                {
+                  width: w,
+                  height: h,
+                  x: x,
+                  y: y,
+                  frame: false,
+                  resizable: false,
+                  movable: true,
+                  alwaysOnTop: true,
+                  skipTaskbar: true,
+                  show: false,
+                  backgroundColor: '#0f172a'
+                }
+              )
               if (win) {
                 if (win.setAlwaysOnTop) win.setAlwaysOnTop(true)
                 if (win.show) win.show()
                 if (win.moveTop) win.moveTop()
               }
-              status.textContent = '已创建贴屏悬浮窗（屏幕右下角）'
+              status.textContent = '已创建贴屏悬浮窗（可拖动，Esc 关闭）'
               // 隐藏主插件视图，只保留贴屏悬浮窗（不杀进程，下次触发命令自动恢复）
               if (typeof window.ztools.outPlugin === 'function') {
                 try {
@@ -448,15 +340,6 @@
             } catch (e) {
               console.error('[ScreenOcr] 创建悬浮窗失败:', e)
               status.textContent = '创建悬浮窗失败: ' + (e && e.message ? e.message : '未知错误')
-              // 失败时回退：直接显示识别结果
-              window.ztools.ocrRecognize(dataURL).then(function (res) {
-                if (res && res.success) {
-                  result.value = res.text || ''
-                  status.textContent = res.text ? '识别完成' : '未识别到文字'
-                } else {
-                  status.textContent = '识别失败'
-                }
-              })
             }
           }
           img.src = dataURL

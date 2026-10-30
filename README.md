@@ -1,20 +1,38 @@
-# ZTools
+# MT Launcher
 
 <div align="center">
 
-<img src="./.github/assets/icon.png" alt="ZTools Logo" width="120">
+<img src="./.github/assets/icon.png" alt="MT Launcher Logo" width="120">
 
 **A High-Performance, Extensible Application Launcher and Plugin Platform**
 
+**MT Launcher — 高性能、可扩展的应用启动器与插件平台**
+
 _Open Source Implementation of uTools | Supports macOS and Windows_
 
-[![GitHub release](https://img.shields.io/github/v/release/lzx8589561/ZTools)](https://github.com/ZToolsCenter/ZTools/releases)
-[![License](https://img.shields.io/github/license/lzx8589561/ZTools)](./LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)](https://github.com/ZToolsCenter/ZTools)
+[![GitHub release](https://img.shields.io/github/v/release/xxxqq1012/MT-Launcher)](https://github.com/xxxqq1012/MT-Launcher/releases)
+[![License](https://img.shields.io/github/license/xxxqq1012/MT-Launcher)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)](https://github.com/xxxqq1012/MT-Launcher)
 
 English | [简体中文](./README_CN.md)
 
 </div>
+
+## 📣 Recent Updates (v3.2.0 — MT Launcher)
+
+> Since v3.2.0 this project is officially named **MT Launcher** (formerly mTools / ZTools fork), tailored for personal use, with Windows as the primary delivery.
+
+- **Branding** — Renamed to MT Launcher, with an MT letter logo and self-signed Windows packaging
+- **Built-in SQL Formatter plugin** (wjz-sqlFormat Java engine + portable JRE):
+  - Three syntax themes (Dark / OneDark / Light) with token coloring for keywords, tables, fields, strings, numbers, functions and comments
+  - 81 rule toggles + 8 parameter settings; the rule dialog auto-loads a four-statement SQL template (query / insert / update / delete) on every open
+  - "Copy Result" button moved to the toolbar, backed by a preload clipboard bridge with triple fallback
+  - Left/right panel drag is capped to the measured window width, the title collapses into an icon at the critical width, and window resize resets panels to 50/50
+- **Built-in screenshot OCR plugin** (PaddleOCR)
+- **Screenshot floating** — integrated the uTools screenshot plugin as the base plugin
+- **Preset cleanup** — removed super clipboard / OCR / todos preset plugins and the screen-ocr screenshot overlay
+- **Configurable data directory** + portable default root
+- Fixed three real-device issues (copy-result no response / panel drag collapse invisible / window resize misalignment)
 
 ## ✨ Features
 

@@ -1,3 +1,37 @@
+# MT Launcher v3.2.0 更新记录
+
+## 品牌与交付 (Branding & Release)
+
+- 项目正式命名为 **MT Launcher**（原名 mTools，fork 自 ZToolsCenter/ZTools），GitHub 仓库同步更名
+- MT 字母 Logo 落地，自签名证书（pfx）Windows 打包，4 发布资产（setup.exe / zip / blockmap / latest.yml）
+- 数据目录可配置，便携模式默认根目录
+
+## SQL 格式化插件 (SQL Formatter)
+
+- 集成 wjz-sqlFormat Java 引擎（1.3），内置便携 JRE 8u504；Java 不可用时自动回退内置 JS 引擎
+- 三主题语法高亮（深色 / OneDark / 浅色），关键字、表名、字段、字符串、数字、函数、注释按主题分色
+- 规则配置 81 项开关（11 组）+ 8 项参数（大小写样式、行宽、括号、逗号、等号、缩进等），保存写回 sqlFormat.cfg
+- 规则弹窗每次打开自动加载四段 SQL 范本（查询 / 新增 / 修改 / 删除，含行注释、块注释、IN 长列表、CASE 嵌套、子查询）
+- 「复制结果」按钮移至工具栏（格式化按钮右侧），preload 剪贴板桥（writeClipboardText）+ navigator.clipboard + execCommand 三层兜底，状态栏反馈
+- 左右面板拖拽按实测窗口宽度封顶（MIN_RIGHT=120），标题临界宽度（135）自动折叠为居中图标，点击图标还原 50/50；窗口 resize 自动还原 50/50 分栏
+
+## 插件与预置调整 (Plugins & Presets)
+
+- 内置截图识别插件（PaddleOCR）
+- 引入 uTools 截图悬浮插件为基础插件；移除 screen-ocr 截图悬浮功能
+- 移除超级剪贴板 / OCR / todos 预置插件
+- 取消官方同步，改自建数据同步（进行中）
+
+## 修复 (Fix)
+
+- 修复实机反馈：复制结果按钮无响应（语法高亮层遮挡）——按钮迁至工具栏并走剪贴板桥
+- 修复右侧面板拖到最右时折叠图标不可见、格式化面板被挤没
+- 修复窗口全屏/缩放后面板拖拽越界、格式化结果不可见
+
+---
+
+# 上游更新（fork 自 ZTools，以下为上游 changelog）
+
 # 3.3.0-beta.2
 
 ## 新功能 (Feat)

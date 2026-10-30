@@ -1,20 +1,36 @@
-# ZTools
+# MT Launcher
 
 <div align="center">
 
-<img src="./.github/assets/icon.png" alt="ZTools Logo" width="120">
+<img src="./.github/assets/icon.png" alt="MT Launcher Logo" width="120">
 
-**一个高性能、可扩展的应用启动器和插件平台**
+**一个高性能、可扩展的应用启动器和插件平台（原名 mTools / ZTools fork）**
 
 _uTools 的开源实现 | 支持 macOS 和 Windows_
 
-[![GitHub release](https://img.shields.io/github/v/release/lzx8589561/ZTools)](https://github.com/ZToolsCenter/ZTools/releases)
-[![License](https://img.shields.io/github/license/lzx8589561/ZTools)](./LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)](https://github.com/ZToolsCenter/ZTools)
+[![GitHub release](https://img.shields.io/github/v/release/xxxqq1012/MT-Launcher)](https://github.com/xxxqq1012/MT-Launcher/releases)
+[![License](https://img.shields.io/github/license/xxxqq1012/MT-Launcher)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)](https://github.com/xxxqq1012/MT-Launcher)
 
 [English](./README.md) | 简体中文
 
 </div>
+
+## 📣 最近更新（v3.2.0 — MT Launcher）
+
+> 自 v3.2.0 起本项目正式命名为 **MT Launcher**（原名 mTools / ZTools fork），面向个人使用场景深度打磨，Windows 版为主要交付形态。
+
+- **品牌命名**：项目更名 MT Launcher，配套 MT 字母 Logo，自签名证书 Windows 打包
+- **内置 SQL 格式化插件**（wjz-sqlFormat Java 引擎 + 便携 JRE）：
+  - 三主题语法高亮（深色 / OneDark / 浅色），关键字、表名、字段、字符串、数字、函数、注释分色
+  - 81 项规则开关 + 8 项参数配置；规则弹窗每次打开自动加载四段 SQL 范本（查询 / 新增 / 修改 / 删除）
+  - 「复制结果」按钮移至工具栏，preload 剪贴板桥 + 三层兜底
+  - 左右面板拖拽按实测窗口宽度封顶、标题临界自动折叠为图标、窗口缩放自动还原 50/50 分栏
+- **内置截图识别插件**（PaddleOCR）
+- **截图悬浮**：引入 uTools 截图悬浮插件为基础插件
+- **精简预置**：移除超级剪贴板 / OCR / todos 预置插件，移除 screen-ocr 截图悬浮功能
+- **数据目录可配置** + 便携默认根目录
+- 修复实机反馈三类问题（复制结果无响应 / 面板拖拽折叠不可见 / 窗口缩放错乱等）
 
 ## ✨ 特性
 

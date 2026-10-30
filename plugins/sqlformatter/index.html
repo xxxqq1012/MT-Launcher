@@ -511,6 +511,10 @@
       .output-panel.collapsed .collapse-icon {
         display: flex;
       }
+      /* 复制按钮已移到工具栏，覆盖 bundle 的绝对定位 */
+      #copyButton {
+        position: static !important;
+      }
     </style>
   </head>
   <body>
@@ -572,6 +576,9 @@
           <button id="formatButton" class="button primary" type="button" title="Ctrl + Enter">
             格式化
           </button>
+          <button id="copyButton" class="button ghost" type="button" title="复制格式化结果到剪贴板">
+            复制结果
+          </button>
         </div>
       </section>
 
@@ -627,7 +634,6 @@
               <path d="M3 10h18" />
             </svg>
           </button>
-          <button id="copyButton" class="copy-button" type="button">复制结果</button>
         </article>
       </section>
 
@@ -1477,6 +1483,8 @@
           const left = document.querySelector('.workspace .editor-panel')
           const right = document.querySelector('.output-panel')
           if (!ws || !left || !right) return
+          const MIN_RIGHT = 120 // 右面板最小宽度（放不下标题即折叠为图标）
+          const COLLAPSE_AT = 135 // 低于该宽度进入图标模式
           const splitter = document.createElement('div')
           splitter.className = 'splitter'
           splitter.title = '拖动调整左右面板宽度'
@@ -1495,14 +1503,19 @@
           })
           document.addEventListener('mousemove', (e) => {
             if (!dragging) return
-            const splitW = splitter.getBoundingClientRect().width
-            const w = Math.min(
-              Math.max(startW + (e.clientX - startX), 180),
-              ws.clientWidth - splitW - 72
-            )
+            let w = Math.max(startW + (e.clientX - startX), 180)
             left.style.flex = '0 0 ' + w + 'px'
             right.style.flex = '1 1 auto'
-            if (ws.clientWidth - splitW - w < 76) right.classList.add('collapsed')
+            // 用实际量测宽度封顶：右面板不得窄于 MIN_RIGHT（不允许再往右拖）
+            let rightW = right.getBoundingClientRect().width
+            if (rightW < MIN_RIGHT) {
+              const overshoot = MIN_RIGHT - rightW
+              left.style.flex = '0 0 ' + (w - overshoot) + 'px'
+              rightW = MIN_RIGHT
+            }
+            // 标题放不下（接近临界）即折叠为图标，宽度恢复则展开
+            if (rightW < COLLAPSE_AT) right.classList.add('collapsed')
+            else right.classList.remove('collapsed')
           })
           document.addEventListener('mouseup', () => {
             if (dragging) {
@@ -1520,6 +1533,12 @@
               right.style.flex = '1 1 50%'
             })
           }
+          // 窗口放大/缩小：分栏自动还原为中间
+          window.addEventListener('resize', () => {
+            left.style.flex = '1 1 50%'
+            right.style.flex = '1 1 50%'
+            right.classList.remove('collapsed')
+          })
         })()
         // 首次进入时静态探测引擎并更新页面底栏提示（不执行 java，不阻塞）
         try {

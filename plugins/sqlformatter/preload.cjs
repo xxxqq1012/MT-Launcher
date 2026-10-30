@@ -237,8 +237,19 @@ function readClipboardText() {
   }
 }
 
+/** 写入系统剪贴板（"复制结果"按钮使用；Electron clipboard 不依赖页面权限） */
+function writeClipboardText(text) {
+  try {
+    clipboard.writeText(String(text ?? ''))
+    return true
+  } catch {
+    return false
+  }
+}
+
 window.sqlFormatterBridge = Object.freeze({
   readClipboardText,
+  writeClipboardText,
   formatWithEngine,
   readSettings,
   writeSettings,

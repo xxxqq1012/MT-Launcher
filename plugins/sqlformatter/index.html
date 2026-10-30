@@ -468,6 +468,49 @@
         tab-size: 2;
         margin-top: 8px;
       }
+      /* ===== 左右面板拖拽分隔条与右侧折叠为图标 ===== */
+      .workspace {
+        display: flex;
+        align-items: stretch;
+      }
+      .workspace .editor-panel {
+        flex: 1 1 50%;
+      }
+      .splitter {
+        flex: 0 0 6px;
+        cursor: col-resize;
+        align-self: stretch;
+        border-radius: 3px;
+        background: transparent;
+      }
+      .splitter:hover,
+      .splitter.dragging {
+        background: var(--line);
+      }
+      .output-panel.collapsed .editor-shell,
+      .output-panel.collapsed .panel-heading,
+      .output-panel.collapsed .copy-button {
+        display: none;
+      }
+      .output-panel .collapse-icon {
+        display: none;
+        position: absolute;
+        inset: 0;
+        margin: auto;
+        width: 44px;
+        height: 44px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--accent);
+        cursor: pointer;
+        z-index: 5;
+      }
+      .output-panel.collapsed .collapse-icon {
+        display: flex;
+      }
     </style>
   </head>
   <body>
@@ -565,6 +608,25 @@
               aria-label="格式化结果"
             ></textarea>
           </div>
+          <button
+            id="collapseOutputButton"
+            class="collapse-icon"
+            type="button"
+            title="恢复格式化结果面板"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="M3 10h18" />
+            </svg>
+          </button>
           <button id="copyButton" class="copy-button" type="button">复制结果</button>
         </article>
       </section>
@@ -1031,27 +1093,31 @@
           'SELECT COLUMN1,COLUMN2,COLUMN3,COLUMN4,COLUMN5',
           'FROM tab5',
           'WHERE COLUMN1>0 AND COLUMN3=1',
-          'UNION ALL',
+          'UNION ALL ',
           'SELECT tab12.column111,tab12.column101 || tab3.column301 AS COLUMN1,concat(tab12.column201,tab3.column302) AS COLUMN2,',
-          'CASE tab3.column301 WHEN tab3.column311 THEN COLUMN321',
-          'WHEN tab3.column331 THEN COLUMN331',
-          'CASE WHEN tab3.column401=COLUMN402 THEN tab3.column401 WHEN tab3.column401=COLUMN403 THEN tab3.column403 END',
-          'FROM (SELECT tab1.column101,tab1.column201,/*注释*/max(tab1.column102) AS column102,sum(tab2.column202) AS column202',
-          'FROM tab1',
-          'LEFT JOIN tab2 ON tab1.column101=tab2.column201',
-          "WHERE tab1.column105='test' AND TAB2.column206 IN (1,2,3)",
-          'AND tab2.column205 <= tab1.column200+200',
-          'GROUP BY tab1.column101,tab1.column201',
-          'HAVING count (tab1.column101)>1 AND sum(tab2.column202)>0) tab3',
-          'LEFT JOIN tab3 ON tab3.column301=tab1.column101',
+          '\t\tCASE tab3.column301 WHEN tab3.column311 THEN COLUMN321 WHEN tab3.column331 THEN COLUMN331 ELSE COLUMN341 end AS COLUMN3,-- 行注释',
+          '\t\tCASE  WHEN tab3.column401=COLUMN402 THEN tab3.column411 WHEN tab3.column401=COLUMN403 THEN tab3.column431 ELSE COLUMN441 end AS COLUMN4,-- 行注释',
+          '\t\ttab3.COLUMN4 AS COLUMN4,tab3.COLUMN5 AS COLUMN5',
+          'FROM (',
+          '\tSELECT tab1.column101,tab2.column201,/**块注释*/ ',
+          'max(tab1.column102) AS column102,sum(tab2.column202) AS  column202,',
+          '\tFROM tab1 ',
+          '\tLEFT JOIN tab2 ON tab1.column101=tab2.column201 AND  tab1.column102=tab2.column202',
+          "\tWHERE tab1.column105='test' AND TAB2.column206 IN (1,2,3,4,5,6,76,8,89,56,54453,234,342,23435,453) ",
+          '\t\tAND tab2.column205 <= tab1.column106+200',
+          '\tGROUP BY tab1.column101,tab2.column201',
+          '\tHAVING count(tab1.column101)>1 AND sum(tab2.column201)>100) tab12',
+          'LEFT JOIN tab3 ON tab3.column301=tab12.column101 AND tab3.column302=tab12.column201',
           'WHERE tab3.column305>0 AND tab3.column306>0',
           'ORDER BY tab12.column101,tab12.column201;',
           '-- 新增sql',
-          'INSERT INTO tab1 (column101,column102,column103,column104,column105)',
-          "values('column101','column102','column103','column104','column105');",
+          'INSERT INTO tab1(column101,column102,column103,column104,column105,column106,column107,column108,column109,column110)',
+          "values('column101','column102','column103','column104','column105','column106','column107','column108','column109','column110');",
           '-- 修改sql',
-          "UPDATE tab1 SET column101='column101',column102='column102',column103='column103'",
-          "WHERE tab1.column105='test' AND tab1.column106>(SELECT max(column1) FROM tab5 WHERE COLUMN1>0 AND COLUMN3=1);"
+          "UPDATE tab1 SET column101='column101',column102='column102',column103='column103',column104='column104',column105='column105'",
+          "WHERE tab1.column105='test' AND  tab1.column106>(SELECT max(column1) FROM tab5 WHERE COLUMN1>0 AND COLUMN3=1);",
+          '-- 删除sql',
+          "DELETE FROM tab1 WHERE tab1.column105='test';"
         ].join('\n')
 
         let previewTimer = null
@@ -1248,7 +1314,8 @@
             setStatus($('cfgStatus'), '桥接不可用', false)
             return
           }
-          if (!$('cfgSampleInput').value) $('cfgSampleInput').value = SAMPLE_SQL
+          // 每次打开规则配置都加载默认范本（可编辑，下次打开恢复默认）
+          $('cfgSampleInput').value = SAMPLE_SQL
           loadCfgIntoRules()
           schedulePreview()
         }
@@ -1358,7 +1425,8 @@
           if (cb && cb.disabled) cb.disabled = false
         }, 300)
 
-        // 复制结果：接管点击（bundle 的复制走 clipboard API，若环境受限由 execCommand 兜底）
+        // 复制结果：接管点击。优先走 preload 桥（Electron clipboard，最可靠），
+        // 其次 clipboard API，最后 execCommand 兜底；成功/失败均有状态栏反馈
         function copyOutputText() {
           const val = $('outputSql').value
           const st = $('statusText')
@@ -1369,28 +1437,90 @@
           const done = () => {
             if (st) st.textContent = '已复制格式化结果'
           }
-          const fail = () => {
+          const fail = (why) => {
             try {
               const ta = $('outputSql')
               ta.focus()
               ta.select()
-              if (document.execCommand('copy')) done()
-              else if (st) st.textContent = '复制失败'
+              if (document.execCommand('copy')) {
+                done()
+                return
+              }
+              if (st) st.textContent = '复制失败：' + (why || '请重试')
             } catch (e) {
-              if (st) st.textContent = '复制失败'
+              if (st) st.textContent = '复制失败：' + (why || e.message || '未知原因')
             }
           }
           try {
+            const b = window.sqlFormatterBridge
+            if (b && typeof b.writeClipboardText === 'function' && b.writeClipboardText(val)) {
+              done()
+              return
+            }
             if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(val).then(done).catch(fail)
+              navigator.clipboard
+                .writeText(val)
+                .then(done)
+                .catch((e) => fail(e && e.message))
             } else {
-              fail()
+              fail('当前环境不支持剪贴板 API')
             }
           } catch (e) {
-            fail()
+            fail(e && e.message)
           }
         }
         $('copyButton').addEventListener('click', copyOutputText)
+
+        // ===== 左右面板拖拽分隔条：右侧可折叠为图标，点击图标还原初始 50/50 =====
+        ;(() => {
+          const ws = document.querySelector('.workspace')
+          const left = document.querySelector('.workspace .editor-panel')
+          const right = document.querySelector('.output-panel')
+          if (!ws || !left || !right) return
+          const splitter = document.createElement('div')
+          splitter.className = 'splitter'
+          splitter.title = '拖动调整左右面板宽度'
+          ws.insertBefore(splitter, right)
+          let dragging = false
+          let startX = 0
+          let startW = 0
+          splitter.addEventListener('mousedown', (e) => {
+            dragging = true
+            startX = e.clientX
+            startW = left.getBoundingClientRect().width
+            splitter.classList.add('dragging')
+            document.body.style.cursor = 'col-resize'
+            document.body.style.userSelect = 'none'
+            e.preventDefault()
+          })
+          document.addEventListener('mousemove', (e) => {
+            if (!dragging) return
+            const splitW = splitter.getBoundingClientRect().width
+            const w = Math.min(
+              Math.max(startW + (e.clientX - startX), 180),
+              ws.clientWidth - splitW - 72
+            )
+            left.style.flex = '0 0 ' + w + 'px'
+            right.style.flex = '1 1 auto'
+            if (ws.clientWidth - splitW - w < 76) right.classList.add('collapsed')
+          })
+          document.addEventListener('mouseup', () => {
+            if (dragging) {
+              dragging = false
+              splitter.classList.remove('dragging')
+              document.body.style.cursor = ''
+              document.body.style.userSelect = ''
+            }
+          })
+          const icon = $('collapseOutputButton')
+          if (icon) {
+            icon.addEventListener('click', () => {
+              right.classList.remove('collapsed')
+              left.style.flex = '1 1 50%'
+              right.style.flex = '1 1 50%'
+            })
+          }
+        })()
         // 首次进入时静态探测引擎并更新页面底栏提示（不执行 java，不阻塞）
         try {
           const b = window.sqlFormatterBridge

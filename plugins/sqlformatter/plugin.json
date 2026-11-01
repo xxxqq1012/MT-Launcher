@@ -1,9 +1,9 @@
 {
   "name": "sql-formatter",
-  "title": "SQL 格式化",
+  "title": "SQL 格式化(JS)",
   "description": "离线格式化多种 SQL 方言，支持一键复制与粘贴 SQL 自动识别。",
   "author": "hulin",
-  "version": "1.0.0",
+  "version": "3.2.1",
   "main": "index.html",
   "preload": "preload.cjs",
   "logo": "logo.png",
@@ -17,7 +17,7 @@
       "explain": "格式化 SQL",
       "icon": "logo.png",
       "cmds": [
-        "SQL 格式化",
+        "SQL 格式化(JS)",
         "格式化 SQL",
         "SQL Formatter",
         {

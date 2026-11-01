@@ -41,6 +41,7 @@ extraResources:
     to: dist-plugins
     filter:
       - '**/*'
+      - '!sql-formatter-1.0.0*'
 fileAssociations:
   - ext: zpx
     name: MT Launcher Plugin

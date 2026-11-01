@@ -1,7 +1,7 @@
-// 构建 sql-formatter 基础插件（页面 + wjz-sqlFormat 引擎）
+// 构建 sql-formatter 基础插件（页面 + shenlq-sqlFormat 引擎）
 // 用法: node scripts/build-sqlformatter.cjs
 // 输入: plugins/sqlformatter/（页面与 preload，已由 patch-sqlformatter.cjs 接入引擎桥）
-//       + D:\Datas\mTools\wjz-sqlFormat\{jar,lib,cfg}
+//       + D:\Datas\mTools\wjz-sqlFormat\{jar,lib,cfg}（引擎源目录，jar 名 shenlq-sqlFormat-1.3.jar）
 // 输出: dist-plugins/sql-formatter-1.0.0-<hash8>.asar (+ .asar.unpacked 侧车)
 const fs = require('fs')
 const path = require('path')
@@ -48,7 +48,7 @@ async function main() {
       fs.copyFileSync(path.join(libSrc, f), path.join(BUILD_DIR, 'lib', f))
     }
   }
-  if (!fs.existsSync(path.join(BUILD_DIR, 'wjz-sqlFormat-1.3.jar'))) {
+  if (!fs.existsSync(path.join(BUILD_DIR, 'shenlq-sqlFormat-1.3.jar'))) {
     console.error('[build-sqlformatter] 引擎 jar 缺失: ' + ENGINE_DIR)
     process.exit(1)
   }
@@ -56,7 +56,7 @@ async function main() {
   // 2. 打包 asar（jar/lib/cfg 走 unpacked 侧车，供 java 子进程直接访问）
   fs.rmSync(TMP_ASAR, { force: true })
   await asar.createPackageWithOptions(BUILD_DIR, TMP_ASAR, {
-    unpack: '**/{wjz-sqlFormat-1.3.jar,**/lib/**,**/*.cfg,**/jre/**}'
+    unpack: '**/{shenlq-sqlFormat-1.3.jar,**/lib/**,**/*.cfg,**/jre/**}'
   })
   finalize()
 }

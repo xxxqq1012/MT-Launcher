@@ -1,4 +1,4 @@
-// 端到端实测：内置 JRE + wjz jar + stdout 捕获（模拟 preload formatWithEngine）
+// 端到端实测：内置 JRE + shenlq-sqlFormat jar + stdout 捕获（模拟 preload formatWithEngine）
 const cp = require('child_process')
 const fs = require('fs')
 const os = require('os')
@@ -6,7 +6,7 @@ const path = require('path')
 
 const base = 'D:/Datas/mTools/mtools/plugins/sqlformatter'
 const javaCmd = path.join(base, 'jre', 'bin', 'java.exe')
-const jar = 'D:/Datas/mTools/wjz-sqlFormat/wjz-sqlFormat-1.3.jar'
+const jar = 'D:/Datas/mTools/wjz-sqlFormat/shenlq-sqlFormat-1.3.jar'
 const cwd = 'D:/Datas/mTools/wjz-sqlFormat'
 
 const sample = [

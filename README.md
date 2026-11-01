@@ -23,7 +23,7 @@ English | [简体中文](./README_CN.md)
 > Since v3.2.0 this project is officially named **MT Launcher** (formerly mTools / ZTools fork), tailored for personal use, with Windows as the primary delivery.
 
 - **Branding** — Renamed to MT Launcher, with an MT letter logo and self-signed Windows packaging
-- **Built-in SQL Formatter plugin** (wjz-sqlFormat Java engine + portable JRE):
+- **Built-in SQL Formatter plugin** (shenlq-sqlFormat Java engine + portable JRE):
   - Three syntax themes (Dark / OneDark / Light) with token coloring for keywords, tables, fields, strings, numbers, functions and comments
   - 81 rule toggles + 8 parameter settings; the rule dialog auto-loads a four-statement SQL template (query / insert / update / delete) on every open
   - "Copy Result" button moved to the toolbar, backed by a preload clipboard bridge with triple fallback

@@ -21,7 +21,7 @@ _uTools 的开源实现 | 支持 macOS 和 Windows_
 > 自 v3.2.0 起本项目正式命名为 **MT Launcher**（原名 mTools / ZTools fork），面向个人使用场景深度打磨，Windows 版为主要交付形态。
 
 - **品牌命名**：项目更名 MT Launcher，配套 MT 字母 Logo，自签名证书 Windows 打包
-- **内置 SQL 格式化插件**（wjz-sqlFormat Java 引擎 + 便携 JRE）：
+- **内置 SQL 格式化插件**（shenlq-sqlFormat Java 引擎 + 便携 JRE）：
   - 三主题语法高亮（深色 / OneDark / 浅色），关键字、表名、字段、字符串、数字、函数、注释分色
   - 81 项规则开关 + 8 项参数配置；规则弹窗每次打开自动加载四段 SQL 范本（查询 / 新增 / 修改 / 删除）
   - 「复制结果」按钮移至工具栏，preload 剪贴板桥 + 三层兜底

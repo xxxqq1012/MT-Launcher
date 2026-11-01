@@ -4,7 +4,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-const JAR_NAME = 'wjz-sqlFormat-1.3.jar'
+const JAR_NAME = 'shenlq-sqlFormat-1.3.jar'
 const CFG_NAME = 'sqlFormat.cfg'
 const SETTINGS_NAME = 'mt-settings.json'
 const FORMAT_TIMEOUT = 15000
@@ -167,7 +167,7 @@ function testEngine(sqlText) {
     error: null
   }
   if (!jar) {
-    diag.error = '未找到引擎 jar（wjz-sqlFormat-1.3.jar）'
+    diag.error = '未找到引擎 jar（shenlq-sqlFormat-1.3.jar）'
     return diag
   }
   if (!javaCmd) {

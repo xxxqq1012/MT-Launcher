@@ -1,5 +1,5 @@
-// 为 sql-formatter 插件的页面 bundle 接入 wjz-sqlFormat 引擎桥：
-// 格式化入口优先调用 window.sqlFormatterBridge.formatWithEngine（wjz 引擎，
+// 为 sql-formatter 插件的页面 bundle 接入 shenlq-sqlFormat 引擎桥：
+// 格式化入口优先调用 window.sqlFormatterBridge.formatWithEngine（shenlq-sqlFormat 引擎，
 // sqlFormat.cfg 自定义规则生效）；引擎不可用（无 Java/无 jar）时回退页面原有 JS 格式化。
 const fs = require('fs')
 const path = require('path')

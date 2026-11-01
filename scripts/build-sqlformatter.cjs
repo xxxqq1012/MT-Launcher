@@ -1,9 +1,8 @@
-// 构建 sql-formatter 基础插件（页面 + preload + 自研 JS 引擎，无 Java 依赖）
+// 构建 sql-formatter 基础插件（页面 + wjz-sqlFormat 引擎）
 // 用法: node scripts/build-sqlformatter.cjs
-// 输入: plugins/sqlformatter/（页面与 preload）
-//       + plugins/sqlformatter/engine/（自研引擎 engine/formatter/tokenizer 三件）
-//       + dist-plugins 旧侧车的 sqlFormat.cfg（延续用户配置，无则用默认）
-// 输出: dist-plugins/sql-formatter-<version>-<hash8>.asar (+ .asar.unpacked 侧车)
+// 输入: plugins/sqlformatter/（页面与 preload，已由 patch-sqlformatter.cjs 接入引擎桥）
+//       + D:\Datas\mTools\wjz-sqlFormat\{jar,lib,cfg}
+// 输出: dist-plugins/sql-formatter-1.0.0-<hash8>.asar (+ .asar.unpacked 侧车)
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
@@ -12,18 +11,14 @@ const asar = require('@electron/asar')
 const ROOT = path.resolve(__dirname, '..')
 const SRC_DIR = path.join(ROOT, 'plugins', 'sqlformatter')
 const BUILD_DIR = path.join(SRC_DIR, 'build')
-const ENGINE_DIR = path.join(SRC_DIR, 'engine')
+const ENGINE_DIR = 'D:\\Datas\\mTools\\wjz-sqlFormat'
 const OUT_DIR = path.join(ROOT, 'dist-plugins')
 const TMP_ASAR = path.join(SRC_DIR, 'sqlformatter.tmp.asar')
 
 async function main() {
-  // 0. 插件版本（与启动器版本同步：3.2.1）
-  const pkg = JSON.parse(fs.readFileSync(path.join(SRC_DIR, 'plugin.json'), 'utf-8'))
-  const version = String(pkg.version || '1.0.0')
-
-  // 1. 组装构建目录（页面/preload + 引擎 JS）
+  // 1. 组装构建目录（页面/preload + 引擎文件）
   fs.rmSync(BUILD_DIR, { recursive: true, force: true })
-  fs.mkdirSync(path.join(BUILD_DIR, 'engine'), { recursive: true })
+  fs.mkdirSync(path.join(BUILD_DIR, 'lib'), { recursive: true })
   for (const f of [
     'plugin.json',
     'preload.cjs',
@@ -36,52 +31,41 @@ async function main() {
     if (fs.existsSync(src)) fs.copyFileSync(src, path.join(BUILD_DIR, f))
   }
   fs.cpSync(path.join(SRC_DIR, 'assets'), path.join(BUILD_DIR, 'assets'), { recursive: true })
-  for (const f of fs.readdirSync(ENGINE_DIR)) {
-    if (f.endsWith('.asar')) continue
-    fs.copyFileSync(path.join(ENGINE_DIR, f), path.join(BUILD_DIR, 'engine', f))
+  // 内置便携 JRE（unpacked 侧车，随插件分发，无需用户机器安装 Java）
+  if (fs.existsSync(path.join(SRC_DIR, 'jre'))) {
+    fs.cpSync(path.join(SRC_DIR, 'jre'), path.join(BUILD_DIR, 'jre'), { recursive: true })
   }
-  if (!fs.existsSync(path.join(BUILD_DIR, 'engine', 'engine.cjs'))) {
-    console.error('[build-sqlformatter] 自研引擎缺失: ' + ENGINE_DIR)
+  const engineFiles = fs
+    .readdirSync(ENGINE_DIR)
+    .filter((n) => !/\.(doc|bat)$/i.test(n) && n !== 'lib')
+  for (const f of engineFiles) {
+    if (f.endsWith('.asar')) continue // 不把旧插件 asar 打进新包
+    fs.copyFileSync(path.join(ENGINE_DIR, f), path.join(BUILD_DIR, f))
+  }
+  const libSrc = path.join(ENGINE_DIR, 'lib')
+  if (fs.existsSync(libSrc)) {
+    for (const f of fs.readdirSync(libSrc)) {
+      fs.copyFileSync(path.join(libSrc, f), path.join(BUILD_DIR, 'lib', f))
+    }
+  }
+  if (!fs.existsSync(path.join(BUILD_DIR, 'wjz-sqlFormat-1.3.jar'))) {
+    console.error('[build-sqlformatter] 引擎 jar 缺失: ' + ENGINE_DIR)
     process.exit(1)
   }
-  // cfg：优先延续 dist-plugins 旧侧车配置，无则生成默认（与引擎 DEFAULTS 一致）
-  const cfgIn = findLatestCfg()
-  if (cfgIn) {
-    fs.copyFileSync(cfgIn, path.join(BUILD_DIR, 'sqlFormat.cfg'))
-  } else {
-    fs.writeFileSync(
-      path.join(BUILD_DIR, 'sqlFormat.cfg'),
-      '# 默认规则配置（与自研引擎 DEFAULTS 一致）\n',
-      'utf-8'
-    )
-  }
 
-  // 2. 打包 asar（cfg 走 unpacked 侧车，供运行时读写；引擎 JS 留在 asar 内）
+  // 2. 打包 asar（jar/lib/cfg 走 unpacked 侧车，供 java 子进程直接访问）
   fs.rmSync(TMP_ASAR, { force: true })
   await asar.createPackageWithOptions(BUILD_DIR, TMP_ASAR, {
-    unpack: '**/*.cfg'
+    unpack: '**/{wjz-sqlFormat-1.3.jar,**/lib/**,**/*.cfg,**/jre/**}'
   })
-  finalize(version)
+  finalize()
 }
 
-/** 在 dist-plugins 找最新旧侧车的 sqlFormat.cfg（延续用户配置） */
-function findLatestCfg() {
-  if (!fs.existsSync(OUT_DIR)) return null
-  const dirs = fs
-    .readdirSync(OUT_DIR)
-    .filter((n) => /^sql-formatter-[\w.-]+\.asar\.unpacked$/.test(n))
-    .sort()
-  for (let i = dirs.length - 1; i >= 0; i--) {
-    const p = path.join(OUT_DIR, dirs[i], 'sqlFormat.cfg')
-    if (fs.existsSync(p)) return p
-  }
-  return null
-}
-
-function finalize(version) {
+function finalize() {
+  const ver = JSON.parse(fs.readFileSync(path.join(SRC_DIR, 'plugin.json'), 'utf8')).version
   const buf = fs.readFileSync(TMP_ASAR)
   const hash8 = crypto.createHash('sha1').update(buf).digest('hex').slice(0, 8)
-  const dest = path.join(OUT_DIR, `sql-formatter-${version}-${hash8}.asar`)
+  const dest = path.join(OUT_DIR, `sql-formatter-${ver}-${hash8}.asar`)
   fs.rmSync(dest, { force: true })
   fs.rmSync(dest + '.unpacked', { recursive: true, force: true })
   fs.copyFileSync(TMP_ASAR, dest)

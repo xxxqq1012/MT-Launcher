@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <title>SQL 格式化(JS)</title>
+    <title>SQL 格式化</title>
     <script type="module" crossorigin src="./assets/index-BxN7U9Pp.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-BtExd9g-.css" />
     <style>
@@ -523,7 +523,7 @@
         <div class="brand">
           <img src="./logo.png" alt="" width="28" height="28" />
           <div>
-            <h1>SQL 格式化(JS)</h1>
+            <h1>SQL 格式化</h1>
             <p>本地处理，不上传 SQL</p>
           </div>
         </div>
@@ -563,7 +563,7 @@
           <span>紧凑运算符</span>
         </label>
         <div class="action-buttons">
-          <button id="engineButton" class="button ghost" type="button" title="引擎状态">
+          <button id="engineButton" class="button ghost" type="button" title="引擎状态与 Java 路径">
             引擎
           </button>
           <button id="settingsButton" class="button ghost" type="button" title="SQL 格式化规则配置">
@@ -645,7 +645,7 @@
       </footer>
     </main>
 
-    <!-- 引擎状态 弹窗 -->
+    <!-- 引擎状态 / Java 路径 弹窗 -->
     <div id="engineModal" class="modal-overlay" hidden>
       <div class="modal-card modal-narrow" role="dialog" aria-modal="true" aria-label="引擎配置">
         <div class="modal-head">
@@ -665,13 +665,25 @@
           <div id="engineStatus" class="engine-status">检测中…</div>
           <div class="row">
             <button id="testEngineButton" class="button ghost" type="button">测试引擎</button>
-            <span class="hint">用一段样例 SQL 实跑自研引擎，展示引擎 / 配置链路诊断。</span>
+            <span class="hint">用一段样例 SQL 实跑引擎，展示 Java / jar / 配置链路诊断。</span>
           </div>
           <pre id="testOutput" class="test-output" hidden></pre>
         </div>
         <div class="config-section">
-          <h3>引擎说明</h3>
-          <span class="hint">自研 JS 引擎，无 Java 依赖；规则配置见下方“规则配置”。</span>
+          <h3>Java 路径</h3>
+          <span class="hint"
+            >留空自动探测（内置 JRE → PATH → JAVA_HOME → Oracle → Program Files\Java → DBeaver 自带
+            jre）；指定后优先使用。可填写 DBeaver 自带的 java.exe 路径。</span
+          >
+          <div class="row">
+            <input
+              id="javaPathInput"
+              type="text"
+              placeholder="例如 C:\Program Files\DBeaver\jre\bin\java.exe"
+            />
+            <button id="saveJavaPathButton" class="button" type="button">保存</button>
+          </div>
+          <span id="javaPathStatus" class="hint"></span>
         </div>
       </div>
     </div>
@@ -870,10 +882,14 @@
           }
           const diag = b.engineProbe()
           const lines = []
-          lines.push('引擎: ' + (diag.engine || '未知'))
-          lines.push('就绪: ' + (diag.ready ? '是（无 Java 依赖）' : '否'))
-          if (!diag.ready) lines.push('诊断: 自研引擎不可用')
-          setStatus($('engineStatus'), lines.join('\n'), !!diag.ready)
+          lines.push(
+            'Java: ' + (diag.java || '未找到') + (diag.javaFrom ? '（' + diag.javaFrom + '）' : '')
+          )
+          lines.push('引擎 jar: ' + (diag.jar || '未找到'))
+          if (!diag.java) lines.push('诊断: 未找到 Java，请安装 JDK 8+ 或指定 java 路径')
+          setStatus($('engineStatus'), lines.join('\n'), !!diag.java)
+          const settings = b.readSettings()
+          $('javaPathInput').value = settings && settings.javaPath ? settings.javaPath : ''
           $('testOutput').hidden = true
         }
 
@@ -1258,7 +1274,7 @@
               setStatus(status, 'wjz 引擎', true)
             } else {
               out.value = ''
-              setStatus(status, '引擎不可用', false)
+              setStatus(status, '引擎不可用（检查 Java 与 jar）', false)
             }
           } catch (e) {
             if (seq === previewSeq) {
@@ -1352,14 +1368,31 @@
               setStatus($('cfgStatus'), '保存失败', false)
             }
           })
-          // 自研引擎无需 Java 路径配置
+          $('saveJavaPathButton').addEventListener('click', () => {
+            const b = window.sqlFormatterBridge
+            if (!b) return
+            const val = $('javaPathInput').value.trim()
+            const settings = b.readSettings() || {}
+            settings.javaPath = val || null
+            const ok = b.writeSettings(settings)
+            setStatus(
+              $('javaPathStatus'),
+              ok ? (val ? '已保存：' + val : '已清除，将自动探测') : '保存失败',
+              ok
+            )
+          })
           $('testEngineButton').addEventListener('click', () => {
             const b = window.sqlFormatterBridge
             if (!b) return
             const out = $('testOutput')
             out.hidden = false
             const diag = b.testEngine('select a,b from tab1 where a>1')
-            const lines = ['引擎: ' + (diag.engine || '未知')]
+            const lines = [
+              'Java: ' +
+                (diag.java || '未找到') +
+                (diag.javaFrom ? '（' + diag.javaFrom + '）' : '')
+            ]
+            lines.push('引擎 jar: ' + (diag.jar || '未找到'))
             if (diag.ran) {
               lines.push('执行成功，输出：')
               lines.push('---')
@@ -1514,8 +1547,8 @@
             setTimeout(() => {
               const diag = b.engineProbe()
               const st = document.getElementById('statusText')
-              if (st && diag && !diag.ready) {
-                st.textContent = '自研引擎不可用，当前使用内置格式化，可点"引擎"设置'
+              if (st && diag && !diag.java) {
+                st.textContent = 'wjz 引擎不可用（未找到 Java），当前使用内置格式化，可点"引擎"设置'
               }
             }, 300)
           }

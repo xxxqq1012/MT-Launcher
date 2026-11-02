@@ -1,6 +1,6 @@
 {
   "name": "mt-launcher",
-  "version": "3.2.2",
+  "version": "3.2.3",
   "description": "MT Launcher - uTools 平替启动器",
   "main": "./out/main/index.js",
   "author": "xxxqq1012",

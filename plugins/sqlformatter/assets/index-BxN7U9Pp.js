@@ -19585,7 +19585,7 @@ function nO(T) {
         : ''
 }
 const aT = 'ztools-sql-formatter-settings-v1',
-  iO = 300
+  iO = 600
 let Z
 const a = {
   input: document.querySelector('#inputSql'),
@@ -19666,7 +19666,14 @@ function oO() {
     ;((a.output.value = ''), d(), W('等待输入 SQL'))
     return
   }
-  Z = setTimeout(() => K({ quiet: !0 }), iO)
+  const q = (oO._q = (oO._q || 0) + 1),
+    idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 50))
+  Z = setTimeout(() => {
+    idle(() => {
+      if (q !== oO._q) return
+      K({ quiet: !0 })
+    })
+  }, iO)
 }
 async function nT() {
   const T = a.output.value

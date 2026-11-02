@@ -219,8 +219,36 @@ function writeSqlConfigFile(content) {
   }
 }
 
-/** 读取 asar 内打包的内置默认 cfg（用于恢复默认） */
+/**
+ * 定位发行包内置默认 cfg：
+ * - 打包运行：resources/dist-plugins/<插件ID>.asar.unpacked/sqlFormat.cfg（随发行包发布、不可被用户调整）
+ * - 开发运行：仓库 dist-plugins 下 sql-formatter-3.2.0 打包源（与 electron-builder extraResources 一致）
+ * 目的：readBundledConfigFile 永远返回"出厂默认"，而不是用户已调整的运行时副本，
+ * 使"恢复默认"与"首次加载"使用同一套默认值，且升级包更新默认后旧用户可一键恢复新默认。
+ */
+function resolveBundledCfgPath() {
+  const prebundled =
+    typeof process.resourcesPath === 'string' && process.resourcesPath
+      ? path.join(process.resourcesPath, 'dist-plugins')
+      : path.resolve(__dirname, '..', '..', 'dist-plugins')
+  const id = path.basename(pluginDir).replace(/\.asar$/, '')
+  const direct = path.join(prebundled, `${id}.asar.unpacked`, CFG_NAME)
+  if (fs.existsSync(direct)) return direct
+  // 开发模式（pluginDir=plugins/sqlformatter，id=sqlformatter）：固定对齐当前打包源目录
+  if (id !== 'sqlformatter') return null
+  const fixed = path.join(prebundled, 'sql-formatter-3.2.0-d8825845.asar.unpacked', CFG_NAME)
+  if (fs.existsSync(fixed)) return fixed
+  return null
+}
+
+/** 读取内置默认 cfg（用于恢复默认，始终读发行包默认而非用户已调整副本） */
 function readBundledConfigFile() {
+  const p = resolveBundledCfgPath()
+  if (p) {
+    try {
+      return fs.readFileSync(p, 'utf-8')
+    } catch {}
+  }
   try {
     return fs.readFileSync(path.join(pluginDir, CFG_NAME), 'utf-8')
   } catch {

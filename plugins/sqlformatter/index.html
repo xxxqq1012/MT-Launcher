@@ -166,7 +166,7 @@
           JetBrains Mono,
           Consolas,
           monospace;
-        font-size: 12px;
+        font-size: var(--editor-fs, 12px);
         line-height: 1.65;
         tab-size: 2;
         white-space: pre-wrap;
@@ -187,6 +187,7 @@
         z-index: 1;
         color: transparent;
         caret-color: var(--tk-caret);
+        font-size: var(--editor-fs, 12px);
       }
       .editor-shell textarea::selection {
         background: rgba(97, 175, 239, 0.25);
@@ -387,7 +388,7 @@
         flex: 1;
         min-height: 0;
         font-family: ui-monospace, Consolas, 'Courier New', monospace;
-        font-size: 12px;
+        font-size: var(--editor-fs, 12px);
         line-height: 1.55;
         border: 1px solid var(--line);
         border-radius: 10px;
@@ -558,6 +559,21 @@
             <option value="4">4 空格</option>
           </select>
         </label>
+        <label id="fontSizeOption" title="SQL 编辑器文本字体大小（可用 Ctrl + 鼠标滚轮快速调整）">
+          <span>字号</span>
+          <select id="fontSizeSelect">
+            <option value="10">10</option>
+            <option value="11">11</option>
+            <option value="12" selected>12</option>
+            <option value="13">13</option>
+            <option value="14">14</option>
+            <option value="15">15</option>
+            <option value="16">16</option>
+            <option value="18">18</option>
+            <option value="20">20</option>
+            <option value="24">24</option>
+          </select>
+        </label>
         <label class="checkbox-label" id="denseOption">
           <input id="denseOperatorsInput" type="checkbox" />
           <span>紧凑运算符</span>
@@ -575,6 +591,14 @@
           <button id="clearButton" class="button ghost" type="button">清空</button>
           <button id="formatButton" class="button primary" type="button" title="Ctrl + Enter">
             格式化
+          </button>
+          <button
+            id="compressButton"
+            class="button ghost"
+            type="button"
+            title="将格式化结果压缩为一行（仅改变显示，不影响规则配置）"
+          >
+            压缩
           </button>
           <button id="copyButton" class="button ghost" type="button" title="复制格式化结果到剪贴板">
             复制结果
@@ -706,7 +730,7 @@
         <div class="config-section">
           <h3>格式化规则</h3>
           <span class="hint"
-            >左侧勾选规则（完整列出，可上下左右滚动），中间编辑 SQL 范本，右侧实时预览 wjz
+            >左侧勾选规则（完整列出，可上下左右滚动），中间编辑 SQL 范本，右侧实时预览 shenlq
             引擎格式化效果；改动即保存生效。</span
           >
           <div class="rule-layout">
@@ -1271,7 +1295,7 @@
             if (seq !== previewSeq) return
             if (result) {
               out.value = result
-              setStatus(status, 'wjz 引擎', true)
+              setStatus(status, 'shenlq 引擎', true)
             } else {
               out.value = ''
               setStatus(status, '引擎不可用（检查 Java 与 jar）', false)
@@ -1548,11 +1572,75 @@
               const diag = b.engineProbe()
               const st = document.getElementById('statusText')
               if (st && diag && !diag.java) {
-                st.textContent = 'wjz 引擎不可用（未找到 Java），当前使用内置格式化，可点"引擎"设置'
+                st.textContent =
+                  'shenlq 引擎不可用（未找到 Java），当前使用内置格式化，可点"引擎"设置'
               }
             }, 300)
           }
         } catch (e) {}
+      })()
+
+      /* ============ 3.2.5：压缩按钮 + SQL 编辑器字体大小 ============ */
+      ;(() => {
+        const FONT_KEY = 'mt-sqlformatter-font-size'
+
+        function applyFontSize(px) {
+          px = Math.max(8, Math.min(32, Math.round(px)))
+          document.documentElement.style.setProperty('--editor-fs', px + 'px')
+          const sel = document.getElementById('fontSizeSelect')
+          if (sel && sel.value !== String(px)) sel.value = String(px)
+          try {
+            localStorage.setItem(FONT_KEY, String(px))
+          } catch (e) {}
+          return px
+        }
+
+        // 初始化字号（记住上次选择，默认 12）
+        let savedFont = 12
+        try {
+          savedFont = parseInt(localStorage.getItem(FONT_KEY), 10) || 12
+        } catch (e) {}
+        applyFontSize(savedFont)
+
+        const fontSizeSelect = document.getElementById('fontSizeSelect')
+        if (fontSizeSelect) {
+          fontSizeSelect.addEventListener('change', () => {
+            applyFontSize(parseInt(fontSizeSelect.value, 10) || 12)
+          })
+        }
+
+        // Ctrl + 鼠标滚轮调整 SQL 编辑器文本字体大小
+        document.addEventListener(
+          'wheel',
+          (e) => {
+            if (!e.ctrlKey) return
+            e.preventDefault()
+            let cur = parseFloat(
+              getComputedStyle(document.documentElement).getPropertyValue('--editor-fs')
+            )
+            if (!cur || isNaN(cur)) cur = 12
+            applyFontSize(cur + (e.deltaY < 0 ? 1 : -1))
+          },
+          { passive: false }
+        )
+
+        // 压缩：把格式化结果压缩为一行（仅改变显示，不影响规则配置）
+        const compressButton = document.getElementById('compressButton')
+        if (compressButton) {
+          compressButton.addEventListener('click', () => {
+            const out = document.getElementById('outputSql')
+            const hl = document.getElementById('outputHl')
+            const stats = document.getElementById('outputStats')
+            if (!out || !out.value) return
+            const one = out.value
+              .replace(/\s*\r?\n\s*/g, ' ')
+              .replace(/[ \t]{2,}/g, ' ')
+              .trim()
+            out.value = one
+            if (hl) hl.textContent = one
+            if (stats) stats.textContent = one.length + ' 字符 · 已压缩为一行'
+          })
+        }
       })()
     </script>
   </body>

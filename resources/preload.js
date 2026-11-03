@@ -409,6 +409,8 @@ window.ztools = {
       lazyThemeChange.attach()
     }
   },
+  // 打开主程序设置窗口；options.tab 可深链指定页签（如 { tab: 'ai' } → 高级服务 - AI）
+  openSettings: (options) => electron.ipcRenderer.send('open-settings', options || {}),
   sendInputEvent: async (event) => await electron.ipcRenderer.invoke('send-input-event', event),
   // 在当前页面中查找文本
   findInPage: (text, options) => electron.ipcRenderer.invoke('find-in-page', text, options),
@@ -1197,6 +1199,17 @@ window.ztools = {
       await electron.ipcRenderer.invoke('internal:update-shortcut', shortcut),
     getCurrentShortcut: async () =>
       await electron.ipcRenderer.invoke('internal:get-current-shortcut'),
+    hotkeyRadarProbe: async (shortcut) =>
+      await electron.ipcRenderer.invoke('internal:hotkey-radar-probe', shortcut),
+    // ==================== 数据迁移 API ====================
+    getDataMigrationInfo: async () =>
+      await electron.ipcRenderer.invoke('internal:data-migration-get-info'),
+    selectDataMigrationTarget: async () =>
+      await electron.ipcRenderer.invoke('internal:data-migration-select-target'),
+    performDataMigration: async (target) =>
+      await electron.ipcRenderer.invoke('internal:data-migration-perform', target),
+    restartAfterDataMigration: async () =>
+      await electron.ipcRenderer.invoke('internal:data-migration-restart'),
     onHotkeyRecorded: (callback) => {
       if (callback && typeof callback === 'function') {
         hotkeyRecordedCallback = callback

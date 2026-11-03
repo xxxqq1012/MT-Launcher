@@ -1637,7 +1637,7 @@ class WindowManager {
   /**
    * 显示设置页面
    */
-  public async showSettings(): Promise<void> {
+  public async showSettings(options?: { tab?: string }): Promise<void> {
     if (!this.mainWindow) return
 
     // 如果当前有插件在显示，先隐藏插件
@@ -1666,11 +1666,13 @@ class WindowManager {
       console.log('[Window] 找到设置插件:', settingPlugin.path)
 
       // 使用统一的 launch 方法启动设置插件
+      // 3.2.23：options.tab 深链 → param.tab 传给设置插件（onPluginEnter 收到后直达页签）
       const result = await api.launchPlugin({
         path: settingPlugin.path,
         type: 'plugin',
         featureCode: 'main',
-        name: '设置'
+        name: '设置',
+        param: options && options.tab ? { tab: options.tab } : {}
       })
 
       if (!result.success) {

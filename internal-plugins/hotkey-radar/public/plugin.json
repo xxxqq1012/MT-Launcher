@@ -1,0 +1,20 @@
+{
+  "name": "hotkey-radar",
+  "title": "热键雷达",
+  "description": "MT Launcher 内置全局热键占用检测：一键探测高频系统快捷键是否被其他软件抢占，并给出冲突修改指引与常用快捷键速查表",
+  "author": "MT Launcher",
+  "version": "1.0.0",
+  "logo": "icon.png",
+  "main": "index.html",
+  "pluginSetting": {
+    "single": true
+  },
+  "features": [
+    {
+      "code": "hotkey-radar",
+      "explain": "探测高频全局快捷键占用情况，排查与其他软件的热键冲突",
+      "icon": "icon.png",
+      "cmds": ["热键雷达", "快捷键占用", "热键冲突", "hotkey radar", "快捷键检测"]
+    }
+  ]
+}

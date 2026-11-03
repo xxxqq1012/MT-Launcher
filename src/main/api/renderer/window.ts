@@ -61,7 +61,7 @@ export class WindowAPI {
     ipcMain.handle('set-tray-icon-visible', (_event, visible: boolean) =>
       this.setTrayIconVisible(visible)
     )
-    ipcMain.on('open-settings', () => this.openSettings())
+    ipcMain.on('open-settings', (_event, options?: unknown) => this.openSettings(options))
   }
 
   private setupWindowEvents(): void {
@@ -158,9 +158,16 @@ export class WindowAPI {
     return material
   }
 
-  private openSettings(): void {
-    windowManager.showSettings()
-    console.log('[WindowAPI] 打开设置插件')
+  private openSettings(options?: unknown): void {
+    // 3.2.23：支持 options.tab 深链（如 { tab: 'ai' } → 设置插件「高级服务 - AI 页签」）
+    const tab =
+      options &&
+      typeof options === 'object' &&
+      typeof (options as { tab?: unknown }).tab === 'string'
+        ? (options as { tab: string }).tab
+        : undefined
+    void windowManager.showSettings(tab ? { tab } : undefined)
+    console.log('[WindowAPI] 打开设置插件', tab ? 'tab=' + tab : '')
   }
 
   /**

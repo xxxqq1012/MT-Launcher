@@ -156,6 +156,21 @@ const api = {
   activateApp: (identifier: string, type?: 'name' | 'bundleId' | 'path') =>
     ipcRenderer.invoke('activate-app', identifier, type),
   revealInFinder: (filePath: string) => ipcRenderer.invoke('reveal-in-finder', filePath),
+  // 插件 uTools 兼容（同步语义，与 utools.showOpenDialog / showSaveDialog / getPath 一致）
+  showOpenDialog: (opts?: any) => ipcRenderer.sendSync('ztools:show-open-dialog', opts),
+  showSaveDialog: (opts?: any) => ipcRenderer.sendSync('ztools:show-save-dialog', opts),
+  getPath: (name?: string) => ipcRenderer.sendSync('ztools:get-path', name),
+  shellOpenPath: (dir: string) => ipcRenderer.invoke('reveal-in-finder', dir),
+  shellShowItemInFolder: (p: string) => ipcRenderer.invoke('reveal-in-finder', p),
+  hideMainWindow: () => ipcRenderer.send('hide-window'),
+  showNotification: (title: string, opts?: any) => {
+    try {
+      const n = new Notification(title, { body: opts?.body || '', silent: true })
+      n.onclick = () => n.close()
+    } catch {
+      /* 渲染层通知不可用时静默 */
+    }
+  },
   showContextMenu: (menuItems: any[]) => ipcRenderer.invoke('show-context-menu', menuItems),
   getAllPlugins: () => ipcRenderer.invoke('get-all-plugins'),
   getDisabledPlugins: () => ipcRenderer.invoke('get-disabled-plugins'),
@@ -209,7 +224,7 @@ const api = {
   selectMainPush: (pluginPath: string, featureCode: string, selectData: any) =>
     ipcRenderer.invoke('select-main-push', pluginPath, featureCode, selectData),
   sendInputEvent: (event: any) => ipcRenderer.invoke('send-input-event', event),
-  openSettings: () => ipcRenderer.send('open-settings'),
+  openSettings: (options?: unknown) => ipcRenderer.send('open-settings', options || {}),
   // 历史记录管理
   removeFromHistory: (appPath: string, featureCode?: string, name?: string) =>
     ipcRenderer.invoke('remove-from-history', appPath, featureCode, name),

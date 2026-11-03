@@ -1,0 +1,33 @@
+{
+  "name": "@lancc/cmark",
+  "version": "1.2.3",
+  "description": "CMark —— 本地 Markdown 笔记，用 git 同步",
+  "keywords": [
+    "markdown",
+    "notes",
+    "git",
+    "ztools",
+    "editor"
+  ],
+  "author": "Lancc",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LanccBy2016/cmark.git"
+  },
+  "files": [
+    "plugin.json",
+    "index.html",
+    "logo.png",
+    "preload.js",
+    "preload/",
+    "assets/",
+    "export-file/",
+    "fonts/",
+    "katex.min.css",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  }
+}

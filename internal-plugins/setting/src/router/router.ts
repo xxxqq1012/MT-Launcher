@@ -74,7 +74,7 @@ const homeRoutes: MenuRouterItemType[] = [
     component: () => import('@/views/ProvidersSetting/ProvidersSetting.vue'),
     meta: {
       menu: {
-        label: '提供商',
+        label: '高级服务',
         icon: 'i-z-brain'
       }
     }
@@ -82,13 +82,7 @@ const homeRoutes: MenuRouterItemType[] = [
   {
     path: '/mcpService',
     name: 'McpService',
-    component: () => import('@/views/McpServiceSetting/McpServiceSetting.vue'),
-    meta: {
-      menu: {
-        label: 'MCP 服务',
-        icon: 'i-z-mcp'
-      }
-    }
+    component: () => import('@/views/McpServiceSetting/McpServiceSetting.vue')
   },
   {
     path: '/data',
@@ -126,46 +120,22 @@ const homeRoutes: MenuRouterItemType[] = [
   {
     path: '/sync',
     name: 'Sync',
-    component: () => import('@/views/SyncSetting/SyncSetting.vue'),
-    meta: {
-      menu: {
-        label: '数据同步',
-        icon: 'i-z-cloud'
-      }
-    }
+    component: () => import('@/views/SyncSetting/SyncSetting.vue')
   },
   {
     path: '/debug',
     name: 'Debug',
-    component: () => import('@/views/DebugSetting/DebugSetting.vue'),
-    meta: {
-      menu: {
-        label: '调试日志',
-        icon: 'i-z-terminal'
-      }
-    }
+    component: () => import('@/views/DebugSetting/DebugSetting.vue')
   },
   {
     path: '/permissions',
     name: 'Permissions',
-    component: () => import('@/views/PermissionSetting/PermissionSetting.vue'),
-    meta: {
-      menu: {
-        label: '高级权限',
-        icon: 'i-z-ban'
-      }
-    }
+    component: () => import('@/views/PermissionSetting/PermissionSetting.vue')
   },
   {
     path: '/httpService',
     name: 'HttpService',
-    component: () => import('@/views/HttpServiceSetting/HttpServiceSetting.vue'),
-    meta: {
-      menu: {
-        label: 'HTTP 服务',
-        icon: 'i-z-monitor'
-      }
-    }
+    component: () => import('@/views/HttpServiceSetting/HttpServiceSetting.vue')
   },
   {
     path: '/about',

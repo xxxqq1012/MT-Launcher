@@ -1,24 +1,18 @@
 <script setup lang="ts">
 import { onActivated, onMounted, onUnmounted, ref, computed } from 'vue'
 import { useToast, DetailPanel } from '@/components'
-import { AccountLoginDialog } from '@/components/common'
-import { ONLINE_SYNC_SERVER_URL } from '@/composables/useZToolsAccount'
 import { normalizeSyncServerUrl } from '@shared/syncServerUrl'
 
 const { success, error, warning, confirm } = useToast()
-const showOfficialLogin = ref(false)
-type DeploymentMode = 'official' | 'private'
 
-// 同步配置
+// 同步配置（仅支持私有部署）
 const syncEnabled = ref(false)
 const config = ref({
-  provider: 'official' as DeploymentMode,
-  serverUrl: ONLINE_SYNC_SERVER_URL,
+  provider: 'private' as const,
+  serverUrl: '',
   syncInterval: 30,
   lastSyncTime: 0
 })
-const deploymentMode = ref<DeploymentMode>('official')
-const deploymentSwitching = ref(false)
 const privateFormDirty = ref(false)
 const privateServerUrl = ref('')
 const privateUsername = ref('')
@@ -28,8 +22,6 @@ const privateLogoutLoading = ref(false)
 const privateConnectionTesting = ref(false)
 const privateConnectionMessage = ref('')
 const privateConnectionSucceeded = ref(false)
-const officialAccountLoggedIn = ref(false)
-const officialAccountUsername = ref('')
 const privateSessionLoggedIn = ref(false)
 const savedPrivateServerUrl = ref('')
 const savedPrivateUsername = ref('')
@@ -95,7 +87,6 @@ const stateColors: Record<string, string> = {
 const stateLabel = computed(() => stateLabels[syncState.value] || syncState.value)
 const stateColor = computed(() => stateColors[syncState.value] || 'var(--text-secondary)')
 const isConnected = computed(() => syncState.value === 'live')
-const isPrivateMode = computed(() => deploymentMode.value === 'private')
 const retryPendingTotal = computed(() => {
   const status = retryStatus.value
   if (!status) return 0
@@ -121,23 +112,16 @@ const lastSyncTime = computed(() => {
 })
 
 /**
- * 将主进程持久化的同步状态映射到当前服务模式，并避免轮询覆盖用户正在填写的私服表单。
+ * 将主进程持久化的同步状态映射到私有部署模式，并避免轮询覆盖用户正在填写的私服表单。
  * @param status 主进程返回的同步状态快照。
  * @returns 无返回值。
  */
 function applySyncStatus(status: any): void {
   const nextConfig = status?.profile || status?.config || null
-  const nextMode: DeploymentMode = nextConfig?.provider === 'private' ? 'private' : 'official'
 
-  if (nextConfig) {
-    deploymentMode.value = nextMode
-  }
-  const configMatchesSelection = Boolean(nextConfig && deploymentMode.value === nextMode)
-
-  syncEnabled.value = Boolean(configMatchesSelection && nextConfig?.enabled)
-  config.value.provider = nextMode
-  config.value.serverUrl =
-    nextMode === 'official' ? ONLINE_SYNC_SERVER_URL : nextConfig?.serverUrl || ''
+  syncEnabled.value = Boolean(nextConfig?.provider === 'private' && nextConfig?.enabled)
+  config.value.provider = 'private'
+  config.value.serverUrl = nextConfig?.serverUrl || ''
   config.value.syncInterval = nextConfig?.syncInterval || 30
   config.value.lastSyncTime = status?.lastSyncTime || nextConfig?.lastSyncTime || 0
   syncState.value = status?.state || 'disconnected'
@@ -145,8 +129,6 @@ function applySyncStatus(status: any): void {
   conflictCount.value = status?.conflictCount || 0
   retryStatus.value = status?.retryStatus || null
 
-  officialAccountLoggedIn.value = Boolean(status?.officialAccount?.loggedIn)
-  officialAccountUsername.value = status?.officialAccount?.username || ''
   privateSessionLoggedIn.value = Boolean(status?.privateSession?.loggedIn)
   savedPrivateServerUrl.value = status?.privateSession?.serverUrl || ''
   savedPrivateUsername.value = status?.privateSession?.username || ''
@@ -154,19 +136,6 @@ function applySyncStatus(status: any): void {
   if (!privateFormDirty.value) {
     privateServerUrl.value = savedPrivateServerUrl.value
     privateUsername.value = savedPrivateUsername.value
-  }
-  updateSelectedLoginState()
-}
-
-/**
- * 根据当前选择的服务类型展示对应且彼此独立的登录状态。
- * @returns 无返回值。
- */
-function updateSelectedLoginState(): void {
-  if (deploymentMode.value === 'official') {
-    loggedIn.value = officialAccountLoggedIn.value
-    loggedUser.value = officialAccountUsername.value
-    return
   }
   loggedIn.value = privateSessionLoggedIn.value
   loggedUser.value = savedPrivateUsername.value
@@ -180,65 +149,6 @@ function markPrivateFormDirty(): void {
   privateFormDirty.value = true
   privateConnectionMessage.value = ''
   privateConnectionSucceeded.value = false
-}
-
-/**
- * 提示用户确认并持久化目标同步服务，成功后再切换页面状态。
- * @param mode 用户选择的同步服务类型。
- * @returns 服务模式切换完成后的 Promise。
- */
-async function handleDeploymentModeChange(mode: DeploymentMode): Promise<void> {
-  if (mode === deploymentMode.value || privateLoginLoading.value || deploymentSwitching.value) {
-    return
-  }
-
-  deploymentSwitching.value = true
-  try {
-    const targetLabel = mode === 'private' ? '私有部署' : '官方服务'
-    const confirmed = await confirm({
-      title: '切换同步服务',
-      message: syncEnabled.value
-        ? `切换到${targetLabel}后，当前同步连接将停止。官方账号与私有服务账号相互独立，请确认目标服务已登录后重新开启同步。`
-        : `确定切换到${targetLabel}吗？官方账号与私有服务账号相互独立，切换后请确认目标服务的登录状态。`,
-      type: 'warning',
-      confirmText: `切换到${targetLabel}`,
-      cancelText: '取消'
-    })
-    if (!confirmed) return
-
-    // 将服务选择和关闭状态一次性保存；主进程会在保存成功后停止旧同步客户端。
-    const targetServerUrl =
-      mode === 'official' ? ONLINE_SYNC_SERVER_URL : savedPrivateServerUrl.value
-    const result = await window.ztools.internal.syncSaveConfig({
-      provider: mode,
-      enabled: false,
-      serverUrl: targetServerUrl,
-      syncInterval: config.value.syncInterval
-    })
-    if (!result.success) throw new Error(result.error || '保存同步服务失败')
-
-    // 持久化成功后再更新界面，失败时保持原服务和开关状态。
-    deploymentMode.value = mode
-    syncEnabled.value = false
-    config.value.provider = mode
-    config.value.serverUrl = targetServerUrl
-    syncState.value = 'disconnected'
-    privateConnectionMessage.value = ''
-    privateConnectionSucceeded.value = false
-    privatePassword.value = ''
-
-    if (mode === 'private' && !savedPrivateServerUrl.value) {
-      privateServerUrl.value = ''
-      privateUsername.value = ''
-      privateFormDirty.value = false
-    }
-    updateSelectedLoginState()
-    success(`已切换到${targetLabel}，同步保持关闭`)
-  } catch (err: any) {
-    error(`切换同步服务失败：${err.message}`)
-  } finally {
-    deploymentSwitching.value = false
-  }
 }
 
 /**
@@ -329,7 +239,8 @@ async function handlePrivateLogin(): Promise<void> {
     privateFormDirty.value = false
     privateConnectionSucceeded.value = true
     privateConnectionMessage.value = '已登录'
-    updateSelectedLoginState()
+    loggedIn.value = true
+    loggedUser.value = username
     success('私有同步服务器登录成功')
     await refreshSyncStatus()
   } catch (err: any) {
@@ -734,7 +645,7 @@ async function handleSyncToggle(): Promise<void> {
     }
 
     if (syncEnabled.value && !loggedIn.value) {
-      warning(isPrivateMode.value ? '请先登录私有同步服务器' : '请先登录官方账号')
+      warning('请先登录私有同步服务器')
       syncEnabled.value = false
       return
     }
@@ -744,11 +655,9 @@ async function handleSyncToggle(): Promise<void> {
     }
 
     const result = await window.ztools.internal.syncSaveConfig({
-      provider: deploymentMode.value,
+      provider: 'private',
       enabled: syncEnabled.value,
-      serverUrl: isPrivateMode.value
-        ? normalizeSyncServerUrl(privateServerUrl.value || savedPrivateServerUrl.value)
-        : ONLINE_SYNC_SERVER_URL,
+      serverUrl: normalizeSyncServerUrl(privateServerUrl.value || savedPrivateServerUrl.value),
       syncInterval: config.value.syncInterval
     })
     if (!result.success) {
@@ -909,39 +818,14 @@ onUnmounted(() => {
   <div class="content-panel">
     <div v-show="currentLevel === 'main'" class="main-content">
       <div class="sync-toolbar">
-        <div class="tab-group" role="tablist" aria-label="同步服务">
-          <button
-            type="button"
-            role="tab"
-            data-testid="sync-mode-official"
-            class="tab-btn"
-            :class="{ active: !isPrivateMode }"
-            :aria-selected="!isPrivateMode"
-            :disabled="deploymentSwitching || privateLoginLoading || privateLogoutLoading"
-            @click="handleDeploymentModeChange('official')"
-          >
-            官方服务
-          </button>
-          <button
-            type="button"
-            role="tab"
-            data-testid="sync-mode-private"
-            class="tab-btn"
-            :class="{ active: isPrivateMode }"
-            :aria-selected="isPrivateMode"
-            :disabled="deploymentSwitching || privateLoginLoading || privateLogoutLoading"
-            @click="handleDeploymentModeChange('private')"
-          >
-            私有部署
-          </button>
-        </div>
+        <div class="toolbar-title">私有部署</div>
         <div class="header-toggle">
           <span class="toggle-label">{{ syncEnabled ? '已启用' : '已禁用' }}</span>
           <label class="toggle">
             <input
               v-model="syncEnabled"
               type="checkbox"
-              :disabled="!loggedIn || deploymentSwitching || privateLogoutLoading"
+              :disabled="!loggedIn || privateLogoutLoading"
               @change="handleSyncToggle"
             />
             <span class="toggle-slider"></span>
@@ -950,21 +834,8 @@ onUnmounted(() => {
       </div>
 
       <div class="service-settings" data-testid="sync-service-settings">
-        <div v-if="!isPrivateMode" class="service-description">
-          <span>使用 ZTools 官方同步服务</span>
-          <span v-if="loggedIn" class="official-account-name">当前账号：{{ loggedUser }}</span>
-          <button
-            v-else
-            type="button"
-            class="official-login-link"
-            @click="showOfficialLogin = true"
-          >
-            登录官方账号
-          </button>
-        </div>
-
         <div
-          v-if="isPrivateMode && privateSessionLoggedIn"
+          v-if="privateSessionLoggedIn"
           class="private-session-summary"
           data-testid="private-sync-session"
         >
@@ -993,11 +864,7 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <form
-          v-else-if="isPrivateMode"
-          class="private-login-form"
-          @submit.prevent="handlePrivateLogin"
-        >
+        <form v-else class="private-login-form" @submit.prevent="handlePrivateLogin">
           <div class="private-field private-server-field">
             <label for="private-sync-server">服务器地址</label>
             <div class="private-input-action">
@@ -1307,8 +1174,6 @@ onUnmounted(() => {
         </div>
       </DetailPanel>
     </Transition>
-
-    <AccountLoginDialog v-model:visible="showOfficialLogin" />
   </div>
 </template>
 
@@ -1339,19 +1204,17 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+.toolbar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
 .header-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-}
-
-.tab-group {
-  display: flex;
-  gap: 6px;
-  background: var(--control-bg);
-  padding: 3px;
-  border-radius: 8px;
 }
 
 .tab-btn {
@@ -1388,37 +1251,6 @@ onUnmounted(() => {
 .service-settings {
   padding: 0 0 20px;
   border-bottom: 1px solid var(--divider-color);
-}
-
-.service-description {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.official-login-link {
-  padding: 3px 12px;
-  border: 1px solid color-mix(in srgb, var(--primary-color) 40%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
-  color: var(--primary-color);
-  font-size: 12px;
-  line-height: 1.6;
-  cursor: pointer;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
-}
-
-.official-login-link:hover {
-  background: var(--primary-color);
-  color: #fff;
-}
-
-.official-account-name {
-  color: var(--success-color, #18a058);
 }
 
 .private-login-form {

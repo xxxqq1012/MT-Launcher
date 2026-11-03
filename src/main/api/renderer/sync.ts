@@ -69,6 +69,19 @@ export class SyncAPI {
   }
 
   /**
+   * 停止当前同步客户端（数据迁移等场景调用，避免迁移期间写入同步状态）。
+   * @returns 无返回值。
+   */
+  public stopAutoSync(): void {
+    try {
+      this.syncClient?.stop()
+      this.scheduleStatusChanged()
+    } catch (error) {
+      console.error('[Sync API] 停止同步失败:', error)
+    }
+  }
+
+  /**
    * 监听统一刷新服务确认的登录失效，并停止同步及通知设置界面清理旧登录态。
    * @returns 无返回值。
    */

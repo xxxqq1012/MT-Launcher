@@ -1,0 +1,236 @@
+/* MT Launcher 视图工具栏覆盖层 - CMark */
+/* 编辑/源码/分屏/专注 居中 + 目录图标(右上角) + 分屏=左源码右预览 */
+
+/* header 布局：菜单最左、git 组最右、标题+四个按钮居中 */
+.mtv-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  border-right: 1px solid var(--mtv-divider, rgba(0, 0, 0, 0.08));
+  margin-right: 8px;
+}
+.mtv-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 9px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  font-size: 13px;
+  color: #444;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.mtv-bar button:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+.mtv-bar button.active {
+  background: #e8f0fe;
+  color: #1a73e8;
+  font-weight: 600;
+}
+
+/* 原生 header 强制 flex：左菜单、右 git 组、中间标题+按钮组 */
+.header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px;
+}
+.header .menu-toggle {
+  margin-right: auto !important;
+}
+.header .handle {
+  margin-left: auto !important;
+}
+.header .title {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* 原生源码模式按钮隐藏（视觉上被目录图标替换，点击能力保留） */
+.header .handle .iconbtn.mtv-hidden,
+button.mtv-hidden {
+  display: none !important;
+}
+
+/* 目录图标按钮（右上角） */
+.mtv-toc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.mtv-toc-btn.active {
+  color: #1a73e8;
+  background: rgba(26, 115, 232, 0.12);
+  border-radius: 5px;
+}
+.mtv-toc-btn.active svg {
+  stroke: #1a73e8;
+}
+
+/* 分屏布局：左侧源码编辑，右侧实时预览 */
+.cm-split .main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+.cm-split .header,
+.cm-split .editor-toolbar {
+  flex: 0 0 100%;
+  max-width: 100%;
+}
+.cm-split .content {
+  flex: 1 1 50%;
+  min-width: 320px;
+  max-width: 50%;
+  box-sizing: border-box;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  overflow-y: auto;
+}
+.cm-split .content textarea.source-editor {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 100%;
+  resize: none;
+}
+.mtv-preview {
+  flex: 1 1 50%;
+  min-width: 320px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: #fff;
+  border-left: 1px solid rgba(0, 0, 0, 0.06);
+}
+.mtv-preview-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 7px 14px;
+  font-size: 12px;
+  color: #888;
+  background: #fafafa;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  letter-spacing: 0.5px;
+}
+.mtv-preview-body {
+  padding: 18px 26px 60px;
+  line-height: 1.7;
+  font-size: 14.5px;
+  color: #24292f;
+}
+.mtv-preview-body.plate-host {
+  height: auto !important;
+}
+.mtv-preview-body pre.mtv-src-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  background: #f6f8fa;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+  padding: 14px;
+  color: #333;
+}
+
+/* 专注模式：只留编辑器 + 四个视图按钮 */
+.cm-focus .sidebar {
+  display: none !important;
+}
+.cm-focus .header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 8px;
+  min-height: 36px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+.cm-focus .header .menu-toggle,
+.cm-focus .header .title,
+.cm-focus .header .handle {
+  display: none !important;
+}
+.cm-focus .header .mtv-bar {
+  border-right: none;
+  margin-right: 0;
+}
+.cm-focus .main {
+  width: 100%;
+}
+.cm-focus .content {
+  max-width: none;
+}
+.cm-focus .mtv-preview {
+  max-width: none;
+}
+
+/* 目录面板 */
+.mtv-toc {
+  position: fixed;
+  top: 64px;
+  right: 16px;
+  width: 264px;
+  max-height: 72%;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  z-index: 9999;
+  padding: 10px 8px;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+.mtv-toc-head {
+  font-size: 12px;
+  color: #888;
+  padding: 2px 8px 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 6px;
+}
+.mtv-toc a {
+  display: block;
+  padding: 4px 8px;
+  border-radius: 5px;
+  color: #333;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.mtv-toc a:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1a73e8;
+}
+.mtv-toc a.mtv-lv-1 {
+  padding-left: 8px;
+  font-weight: 600;
+}
+.mtv-toc a.mtv-lv-2 {
+  padding-left: 20px;
+}
+.mtv-toc a.mtv-lv-3 {
+  padding-left: 32px;
+}
+.mtv-toc a.mtv-lv-4 {
+  padding-left: 44px;
+}
+.mtv-toc a.mtv-lv-5 {
+  padding-left: 56px;
+}
+.mtv-toc a.mtv-lv-6 {
+  padding-left: 68px;
+}
+.mtv-toc-empty {
+  padding: 12px 8px;
+  color: #999;
+  text-align: center;
+}

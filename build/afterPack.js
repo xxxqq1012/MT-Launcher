@@ -293,7 +293,7 @@ module.exports = async function (context) {
   // 复制内置插件
   console.log('\n开始复制内置插件...')
   const internalPluginsDir = path.resolve(__dirname, '../internal-plugins')
-  const pluginNames = ['setting', 'system', 'screen-ocr'] // 内置插件列表
+  const pluginNames = ['setting', 'system', 'screen-ocr', 'hotkey-radar', 'mindnote'] // 内置插件列表
 
   try {
     let resourcesPath = ''

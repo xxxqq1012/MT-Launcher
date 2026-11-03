@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>热键雷达</title>
+    <style>
+      :root {
+        --bg: #f5f6f8;
+        --panel: #ffffff;
+        --border: #e3e5ea;
+        --text: #1f2329;
+        --text-secondary: #6b7280;
+        --primary: #2563eb;
+        --success-bg: #e8f7ee;
+        --success-text: #15803d;
+        --danger-bg: #fdecec;
+        --danger-text: #dc2626;
+        --warn-bg: #fdf3e0;
+        --warn-text: #b45309;
+        --muted-bg: #f0f1f3;
+        --muted-text: #6b7280;
+        --kbd-bg: #eef0f3;
+        --kbd-border: #d3d7de;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #14161a;
+          --panel: #1d2026;
+          --border: #2c3038;
+          --text: #e5e7eb;
+          --text-secondary: #9ca3af;
+          --primary: #60a5fa;
+          --success-bg: rgba(34, 197, 94, 0.14);
+          --success-text: #4ade80;
+          --danger-bg: rgba(239, 68, 68, 0.14);
+          --danger-text: #f87171;
+          --warn-bg: rgba(245, 158, 11, 0.14);
+          --warn-text: #fbbf24;
+          --muted-bg: #262a31;
+          --muted-text: #9ca3af;
+          --kbd-bg: #2a2e36;
+          --kbd-border: #3a3f49;
+          --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 14px;
+        line-height: 1.55;
+      }
+      .wrap {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 22px 20px 40px;
+      }
+      header.top {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 8px;
+      }
+      header.top img.logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+      }
+      header.top h1 {
+        font-size: 20px;
+        margin: 0;
+      }
+      .subtitle {
+        color: var(--text-secondary);
+        font-size: 13px;
+        margin: 0 0 18px;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        padding: 7px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .btn:hover:not(:disabled) {
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+      .btn:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+      .btn.primary {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #fff;
+      }
+      .btn.primary:hover:not(:disabled) {
+        opacity: 0.88;
+        color: #fff;
+      }
+      .custom-card {
+        gap: 10px;
+      }
+      .custom-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .custom-input {
+        flex: 1;
+        min-width: 180px;
+        padding: 7px 12px;
+        font-size: 13.5px;
+        font-family: 'Cascadia Mono', Consolas, monospace;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--muted-bg);
+        color: var(--text);
+        outline: none;
+      }
+      .custom-input:focus {
+        border-color: var(--primary);
+      }
+      .combo-placeholder {
+        color: var(--text-secondary);
+        font-size: 13px;
+      }
+      .progress {
+        color: var(--text-secondary);
+        font-size: 13px;
+      }
+      .section-title {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 22px 0 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .section-title .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--primary);
+      }
+      /* 折叠模块：点击标题切换内容区显隐，默认折叠 */
+      .collapse-block {
+        margin-bottom: 4px;
+      }
+      .collapse-head {
+        cursor: pointer;
+        user-select: none;
+      }
+      .collapse-head:hover .arrow {
+        color: var(--primary);
+      }
+      .collapse-head .arrow {
+        margin-left: 2px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        transition: transform 0.15s;
+      }
+      .collapse-body.collapsed {
+        display: none;
+      }
+      /* 占用程序候选行 */
+      .occupant-line {
+        color: var(--danger-text);
+      }
+      .occupant-line b {
+        color: var(--danger-text);
+        font-weight: 600;
+      }
+      .occupant-line .run-mark {
+        font-weight: 600;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 12px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .card .row-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .combo {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        align-items: center;
+      }
+      kbd {
+        display: inline-block;
+        background: var(--kbd-bg);
+        border: 1px solid var(--kbd-border);
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 12.5px;
+        font-family: 'Cascadia Mono', Consolas, monospace;
+        font-weight: 600;
+        color: var(--text);
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+      }
+      .badge {
+        flex: none;
+        font-size: 12px;
+        padding: 2px 10px;
+        border-radius: 999px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .badge.idle {
+        background: var(--success-bg);
+        color: var(--success-text);
+      }
+      .badge.occupied {
+        background: var(--danger-bg);
+        color: var(--danger-text);
+      }
+      .badge.self {
+        background: var(--warn-bg);
+        color: var(--warn-text);
+      }
+      .badge.pending {
+        background: var(--muted-bg);
+        color: var(--muted-text);
+      }
+      .badge.failed {
+        background: var(--muted-bg);
+        color: var(--muted-text);
+      }
+      .line {
+        font-size: 12.5px;
+        color: var(--text-secondary);
+      }
+      .line b {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .line.guide {
+        color: var(--text-secondary);
+      }
+      .line.guide b {
+        color: var(--text);
+      }
+      .cheat-group {
+        margin-bottom: 18px;
+      }
+      .cheat-group h3 {
+        font-size: 13.5px;
+        margin: 0 0 8px;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .cheat-group h3::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--primary);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--panel);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        vertical-align: top;
+      }
+      th {
+        color: var(--text-secondary);
+        font-weight: 500;
+        font-size: 12px;
+        background: var(--panel);
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      td .combo {
+        justify-content: flex-start;
+      }
+      td.title-cell b {
+        font-weight: 600;
+      }
+      td .desc {
+        color: var(--text-secondary);
+        font-size: 12.5px;
+        margin-top: 2px;
+      }
+      .footnote {
+        color: var(--text-secondary);
+        font-size: 12px;
+        margin-top: 18px;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <img class="logo" src="icon.png" alt="热键雷达" draggable="false" />
+        <h1>热键雷达</h1>
+      </header>
+      <p class="subtitle">
+        探测高频全局快捷键是否被其他软件抢占。检测使用「试注册」方式：毫秒级占用后立即释放，不改变任何应用设置。
+      </p>
+
+      <div class="toolbar">
+        <button id="scanAll" class="btn primary" type="button">全部重新检测</button>
+        <span id="progress" class="progress"></span>
+      </div>
+
+      <div class="section-title"><span class="dot"></span>自定义热键检测</div>
+      <div class="card custom-card">
+        <div class="row-top">
+          <div class="combo" id="customCombo">
+            <span class="combo-placeholder">尚未输入组合键</span>
+          </div>
+          <span id="customBadge" class="badge pending">待检测</span>
+        </div>
+        <div class="line">
+          输入任意组合键并点击「检测」，即可探测该键是否被其他程序占用，例如
+          <b>Ctrl+Shift+H</b>。支持 Ctrl / Alt / Shift / Win（Super）+
+          字母、数字、F1~F24、方向键、Space 等。
+        </div>
+        <div class="custom-row">
+          <input
+            id="customInput"
+            class="custom-input"
+            placeholder="Ctrl+Shift+H"
+            spellcheck="false"
+            autocomplete="off"
+          />
+          <button id="recordBtn" class="btn" type="button">录制</button>
+          <button id="probeBtn" class="btn primary" type="button">检测</button>
+        </div>
+        <div class="line" id="customHint">
+          提示：若想检测的热键已被其他软件全局占用，按下录制可能无响应，此时请直接手动输入后点击「检测」。
+        </div>
+        <div class="line occupant-line" id="customOccupants" style="display: none"></div>
+      </div>
+
+      <section class="collapse-block">
+        <div class="section-title collapse-head">
+          <span class="dot"></span>高危冲突热键检测<span class="arrow">▸</span>
+        </div>
+        <div id="presetGrid" class="grid collapse-body collapsed"></div>
+      </section>
+
+      <section class="collapse-block">
+        <div class="section-title collapse-head">
+          <span class="dot"></span>常用快捷键速查<span class="arrow">▸</span>
+        </div>
+        <div id="cheatList" class="collapse-body collapsed"></div>
+      </section>
+
+      <p class="footnote">
+        说明：被占用表示该组合键已被系统或其他程序注册为全局热键；「MT Launcher
+        已占用」表示当前正在使用该键，两者都会导致目标软件功能失效。 检测基于 Windows
+        全局热键注册表探测，个别由驱动/内核拦截的热键可能显示为空闲。
+      </p>
+    </div>
+
+    <script>
+      ;(function () {
+        'use strict'
+
+        var PRESETS = [
+          {
+            id: 'hk-ctrl-alt-a',
+            keyCombo: 'Ctrl+Alt+A',
+            commonVictim: 'VS Code / Photoshop 选区与多行选中',
+            typicalCulprit: '微信 / QQ / 钉钉全局截图',
+            modifyGuide: '打开微信/QQ -> 设置 -> 快捷键 -> 截取屏幕，修改或清空热键'
+          },
+          {
+            id: 'hk-ctrl-alt-s',
+            keyCombo: 'Ctrl+Alt+S',
+            commonVictim: 'JetBrains IDEA 打开 Settings 设置面板',
+            typicalCulprit: 'QQ 录屏 / 网易云音乐全局热键',
+            modifyGuide: '打开 QQ 或网易云音乐设置 -> 快捷键 -> 取消全局热键勾选'
+          },
+          {
+            id: 'hk-ctrl-shift-f',
+            keyCombo: 'Ctrl+Shift+F',
+            commonVictim: 'VS Code / IDEA 全工程代码搜索与格式化',
+            typicalCulprit: '微软拼音 / 搜狗输入法简繁切换',
+            modifyGuide:
+              '系统设置 -> 时间和语言 -> 输入 -> 微软拼音按键 -> 关闭 Ctrl+Shift+F 简繁切换'
+          },
+          {
+            id: 'hk-alt-z',
+            keyCombo: 'Alt+Z',
+            commonVictim: 'VS Code 自动折行 (Toggle Word Wrap)',
+            typicalCulprit: 'NVIDIA GeForce Experience 游戏内覆盖',
+            modifyGuide: '打开 NVIDIA App -> 设置 -> 关闭游戏内覆盖 (In-Game Overlay)'
+          },
+          {
+            id: 'hk-alt-r',
+            keyCombo: 'Alt+R',
+            commonVictim: 'IDE 正则表达式搜索开关',
+            typicalCulprit: 'NVIDIA 性能图层 / AMD Radeon Adrenalin 驱动面板',
+            modifyGuide: '打开显卡驱动控制面板 -> 热键 -> 修改或关闭性能监控快捷键'
+          },
+          {
+            id: 'hk-ctrl-alt-p',
+            keyCombo: 'Ctrl+Alt+P',
+            commonVictim: '开发者工具命令面板扩展快捷键',
+            typicalCulprit: '网易云音乐 / QQ音乐播放暂停全局键',
+            modifyGuide: '打开音乐软件设置 -> 快捷键 -> 关闭全局快捷键'
+          },
+          {
+            id: 'hk-ctrl-alt-d',
+            keyCombo: 'Ctrl+Alt+D',
+            commonVictim: '办公文档大纲视图切换',
+            typicalCulprit: '网易云桌面歌词 / 欧路词典划词翻译',
+            modifyGuide: '打开音乐或词典软件设置 -> 快捷键 -> 关闭桌面歌词/全局取词热键'
+          },
+          {
+            id: 'hk-ctrl-alt-w',
+            keyCombo: 'Ctrl+Alt+W',
+            commonVictim: '多标签编辑器批量关闭窗口',
+            typicalCulprit: '微信主窗口全局呼出热键',
+            modifyGuide: '微信设置 -> 快捷键 -> 打开微信'
+          },
+          {
+            id: 'hk-ctrl-alt-z',
+            keyCombo: 'Ctrl+Alt+Z',
+            commonVictim: 'Photoshop 多步历史撤回 (Step Backward)',
+            typicalCulprit: 'QQ 提取未读消息全局热键',
+            modifyGuide: 'QQ 设置 -> 热键 -> 设置热键 -> 提取消息'
+          },
+          {
+            id: 'hk-ctrl-space',
+            keyCombo: 'Ctrl+Space',
+            commonVictim: 'VS Code / IDEA 触发智能代码补全 (IntelliSense)',
+            typicalCulprit: '系统输入法中英文切换热键',
+            modifyGuide: '系统输入法设置 -> 按键 -> 取消 Ctrl+Space 切换输入法'
+          },
+          {
+            id: 'hk-ctrl-alt-up',
+            keyCombo: 'Ctrl+Alt+Up',
+            commonVictim: 'VS Code 向上添加多行光标',
+            typicalCulprit: 'Intel 核显控制面板屏幕旋转 180°',
+            modifyGuide: '打开 Intel 显卡控制中心 -> 系统 -> 热键 -> 禁用显示方向旋转热键'
+          },
+          {
+            id: 'hk-ctrl-alt-down',
+            keyCombo: 'Ctrl+Alt+Down',
+            commonVictim: 'VS Code 向下添加多行光标',
+            typicalCulprit: 'Intel 核显控制面板屏幕翻转 / 网易云音量减小',
+            modifyGuide: '关闭 Intel 核显热键或音乐软件全局音量调节热键'
+          },
+          {
+            id: 'hk-f1',
+            keyCombo: 'F1',
+            commonVictim: '浏览器 / 办公软件帮助与重命名辅助',
+            typicalCulprit: 'Snipaste / PixPin 截图触发键',
+            modifyGuide: '托盘右键 Snipaste / PixPin -> 首选项 -> 热键'
+          },
+          {
+            id: 'hk-win-l',
+            keyCombo: 'Win+L',
+            commonVictim: '自定义窗口居右分屏热键',
+            typicalCulprit: 'Windows 系统锁定屏幕保留热键',
+            modifyGuide: '操作系统内核级保留热键，不支持第三方软件覆盖'
+          }
+        ]
+
+        var CHEATSHEET_GROUPS = [
+          {
+            label: 'Windows 系统',
+            items: [
+              {
+                key: 'Win+V',
+                title: '呼出系统剪贴板历史记录',
+                desc: '查看最近复制的多条文本与截图历史并粘贴'
+              },
+              {
+                key: 'Win+Ctrl+D',
+                title: '新建虚拟桌面 (工作区隔离)',
+                desc: '配合 Win+Ctrl+Left/Right 左右秒切不同工作桌面'
+              },
+              {
+                key: 'Win+Z',
+                title: '呼出窗口贴靠分屏布局网格',
+                desc: '一键将当前窗口二分屏、三分屏或四宫格排列'
+              },
+              {
+                key: 'Ctrl+Shift+Esc',
+                title: '直接打开任务管理器 (免按 Ctrl+Alt+Del)',
+                desc: '秒开进程管理器强杀未响应软件'
+              },
+              {
+                key: 'Win+Shift+S',
+                title: '系统原生区域截图与长截图',
+                desc: '框选屏幕任意区域复制到剪贴板'
+              }
+            ]
+          },
+          {
+            label: 'VS Code',
+            items: [
+              {
+                key: 'Ctrl+Shift+P',
+                title: '打开命令面板 (Command Palette)',
+                desc: '执行所有 VS Code 内置与扩展命令的总入口'
+              },
+              {
+                key: 'Ctrl+D',
+                title: '选中下一个相同词汇并添加多光标',
+                desc: '批量重构修改当前函数内同名变量的最高频神器'
+              },
+              {
+                key: 'Ctrl+P',
+                title: '按文件名极速跳转打开文件',
+                desc: '输入 @ 可跳符号函数，输入 : 可跳指定行号'
+              },
+              {
+                key: 'Ctrl+T',
+                title: '跨文件全局搜索函数名与类名符号',
+                desc: '直接按 AST 符号定位整个工作区中的类或方法定义'
+              },
+              {
+                key: 'Ctrl+\\',
+                title: '左右拆分当前代码编辑器分栏',
+                desc: '同屏对照阅读两个源码文件或同一个文件的上下部分'
+              }
+            ]
+          },
+          {
+            label: 'Excel 表格',
+            items: [
+              {
+                key: 'F4',
+                title: '切换公式单元格绝对引用 ($A$1) / 相对引用',
+                desc: '在编辑公式时按 F4 自动加上美元符号锁定行列，或重复上一步操作'
+              },
+              {
+                key: 'Ctrl+E',
+                title: '智能快速填充 (Flash Fill 自动提取拆分列)',
+                desc: '无需写公式！输入一行示例后按 Ctrl+E 自动按规律批量提取手机号、姓名或省市'
+              },
+              {
+                key: 'Alt+=',
+                title: '一键自动求和 (AutoSum 生成 SUM 公式)',
+                desc: '选中数据区底部或右侧空白行，1秒插入全列/全行求和公式'
+              },
+              {
+                key: 'Alt+W+F+F',
+                title: '冻结首行与首列窗格 (Freeze Panes)',
+                desc: '滚动大表格时保持顶部表头和左侧序号列固定不动'
+              },
+              {
+                key: 'Ctrl+Shift+L',
+                title: '一键开启或关闭表头自动筛选下拉箭头',
+                desc: '快速为数据表添加列筛选与排序漏斗'
+              }
+            ]
+          },
+          {
+            label: 'Photoshop',
+            items: [
+              {
+                key: 'Ctrl+T',
+                title: '自由变换图层大小、旋转与透视',
+                desc: '调整选中图层尺寸比例与角度，回车确认应用'
+              },
+              {
+                key: 'Ctrl+Shift+Alt+E',
+                title: '盖印可见图层 (合并生成新图层且保留原图层)',
+                desc: '在不破坏下方原始分层的前提下生成一张合并后的完整图层'
+              }
+            ]
+          },
+          {
+            label: 'Chrome / Edge',
+            items: [
+              {
+                key: 'Ctrl+Shift+T',
+                title: '恢复刚刚误关闭的浏览器标签页',
+                desc: '可连续按多次依次找回最近关闭的网页乃至整个窗口'
+              },
+              {
+                key: 'Ctrl+F5',
+                title: '忽略本地缓存强制硬刷新当前网页',
+                desc: '解决前端发版后网页样式或 JS 仍为旧缓存的问题'
+              },
+              {
+                key: 'Ctrl+Shift+N',
+                title: '打开无痕/隐私浏览窗口 (Incognito)',
+                desc: '不保存浏览历史、Cookie 与登录状态的干净测试窗口'
+              }
+            ]
+          }
+        ]
+
+        var api = window.ztools && window.ztools.internal ? window.ztools.internal : null
+        var stateMap = {}
+        var scanning = false
+
+        function splitCombo(combo) {
+          return combo.split('+')
+        }
+
+        function comboHtml(combo) {
+          return splitCombo(combo)
+            .map(function (k) {
+              return '<kbd>' + k + '</kbd>'
+            })
+            .join('')
+        }
+
+        function badgeHtml(state) {
+          if (!state) return '<span class="badge pending">待检测</span>'
+          if (state.scanning) return '<span class="badge pending">检测中…</span>'
+          if (state.available) return '<span class="badge idle">可用</span>'
+          if (state.reason === 'mt-in-use')
+            return '<span class="badge self">MT Launcher 已占用</span>'
+          if (state.reason === 'occupied')
+            return '<span class="badge occupied">被其他程序占用</span>'
+          return '<span class="badge failed">检测失败</span>'
+        }
+
+        function occupantsText(state) {
+          if (!state || state.reason !== 'occupied') return ''
+          var list = state.occupants || []
+          if (!list.length) return ''
+          return list
+            .map(function (o) {
+              return o.name + (o.running ? '<b class="run-mark">（正在运行）</b>' : '')
+            })
+            .join('、')
+        }
+
+        function updateOccupantLine(card, state) {
+          if (!card) return
+          var occLine = card.querySelector('.occupant-line')
+          if (!occLine) return
+          var text = occupantsText(state)
+          if (text) {
+            occLine.innerHTML = '<b>可能占用：</b>' + text
+            occLine.style.display = ''
+          } else {
+            occLine.innerHTML = ''
+            occLine.style.display = 'none'
+          }
+        }
+
+        function renderPresets() {
+          var grid = document.getElementById('presetGrid')
+          grid.innerHTML = PRESETS.map(function (p) {
+            var s = stateMap[p.id]
+            return (
+              '<div class="card" id="card-' +
+              p.id +
+              '">' +
+              '<div class="row-top">' +
+              '<div class="combo">' +
+              comboHtml(p.keyCombo) +
+              '</div>' +
+              badgeHtml(s) +
+              '</div>' +
+              '<div class="line"><b>受影响：</b>' +
+              p.commonVictim +
+              '</div>' +
+              '<div class="line"><b>常见占用：</b>' +
+              p.typicalCulprit +
+              '</div>' +
+              '<div class="line guide"><b>修改建议：</b>' +
+              p.modifyGuide +
+              '</div>' +
+              '<div class="line occupant-line" style="display:none"></div>' +
+              '</div>'
+            )
+          }).join('')
+        }
+
+        function probeOne(p) {
+          return new Promise(function (resolve) {
+            if (!api || typeof api.hotkeyRadarProbe !== 'function') {
+              stateMap[p.id] = { available: false, reason: 'error' }
+              resolve()
+              return
+            }
+            api
+              .hotkeyRadarProbe(p.keyCombo)
+              .then(function (res) {
+                stateMap[p.id] = res || { available: false, reason: 'error' }
+              })
+              .catch(function () {
+                stateMap[p.id] = { available: false, reason: 'error' }
+              })
+              .finally(function () {
+                var card = document.getElementById('card-' + p.id)
+                if (card) {
+                  card.querySelector('.badge').outerHTML = badgeHtml(stateMap[p.id])
+                  updateOccupantLine(card, stateMap[p.id])
+                }
+                resolve()
+              })
+          })
+        }
+
+        function sleep(ms) {
+          return new Promise(function (resolve) {
+            setTimeout(resolve, ms)
+          })
+        }
+
+        async function runScan() {
+          if (scanning) return
+          scanning = true
+          var btn = document.getElementById('scanAll')
+          var prog = document.getElementById('progress')
+          btn.disabled = true
+          var done = 0
+          for (var i = 0; i < PRESETS.length; i++) {
+            var p = PRESETS[i]
+            stateMap[p.id] = { scanning: true }
+            var card = document.getElementById('card-' + p.id)
+            if (card) {
+              card.querySelector('.badge').outerHTML = badgeHtml(stateMap[p.id])
+              updateOccupantLine(card, stateMap[p.id])
+            }
+            prog.textContent = '检测中 ' + (i + 1) + '/' + PRESETS.length + ' …'
+            await probeOne(p)
+            await sleep(60)
+            done++
+          }
+          prog.textContent = '检测完成：' + done + ' 个热键'
+          btn.disabled = false
+          scanning = false
+        }
+
+        function renderCheatsheet() {
+          var list = document.getElementById('cheatList')
+          list.innerHTML = CHEATSHEET_GROUPS.map(function (g) {
+            var rows = g.items
+              .map(function (it) {
+                return (
+                  '<tr>' +
+                  '<td class="title-cell" style="width:44%"><div class="combo">' +
+                  comboHtml(it.key) +
+                  '</div><div class="desc">' +
+                  it.title +
+                  '</div></td>' +
+                  '<td>' +
+                  it.desc +
+                  '</td>' +
+                  '</tr>'
+                )
+              })
+              .join('')
+            return (
+              '<div class="cheat-group"><h3>' +
+              g.label +
+              '</h3><table><tbody>' +
+              rows +
+              '</tbody></table></div>'
+            )
+          }).join('')
+        }
+
+        // ============ 自定义热键检测 ============
+        var customState = null
+        var customRecording = false
+        var customRecordHandler = null
+
+        var customCodeMap = {
+          Semicolon: ';',
+          Quote: "'",
+          BracketLeft: '[',
+          BracketRight: ']',
+          Backslash: '\\',
+          Comma: ',',
+          Period: '.',
+          Slash: '/',
+          Minus: '-',
+          Equal: '=',
+          Backquote: '`'
+        }
+
+        function toAccelerator(e) {
+          var mods = []
+          if (e.ctrlKey) mods.push('Ctrl')
+          if (e.altKey) mods.push('Alt')
+          if (e.shiftKey) mods.push('Shift')
+          if (e.metaKey) mods.push('Super')
+          var code = e.code || ''
+          var key = null
+          var m
+          if ((m = /^Key([A-Z])$/.exec(code))) {
+            key = m[1]
+          } else if ((m = /^Digit([0-9])$/.exec(code))) {
+            key = m[1]
+          } else if ((m = /^F([1-9]|1[0-9]|2[0-4])$/.exec(code))) {
+            key = 'F' + m[1]
+          } else if ((m = /^Numpad([0-9])$/.exec(code))) {
+            key = 'num' + m[1]
+          } else if ((m = /^Arrow(Up|Down|Left|Right)$/.exec(code))) {
+            key = m[1]
+          } else if (code === 'Space') {
+            key = 'Space'
+          } else if (
+            code === 'Tab' ||
+            code === 'Enter' ||
+            code === 'Backspace' ||
+            code === 'Delete' ||
+            code === 'Home' ||
+            code === 'End' ||
+            code === 'PageUp' ||
+            code === 'PageDown' ||
+            code === 'Insert' ||
+            code === 'Escape' ||
+            code === 'CapsLock'
+          ) {
+            key = code
+          } else if (customCodeMap[code]) {
+            key = customCodeMap[code]
+          } else {
+            var k = e.key
+            if (!k || k.length !== 1 || /[\x00-\x1f]/.test(k)) return null
+            key = k
+          }
+          if (!key) return null
+          return mods.length ? mods.join('+') + '+' + key : key
+        }
+
+        function renderCustom(combo, state) {
+          var comboBox = document.getElementById('customCombo')
+          var badge = document.getElementById('customBadge')
+          if (!combo) {
+            comboBox.innerHTML = '<span class="combo-placeholder">尚未输入组合键</span>'
+            badge.className = 'badge pending'
+            badge.textContent = '待检测'
+            updateCustomOccupants(null)
+            return
+          }
+          comboBox.innerHTML = comboHtml(combo)
+          var cls = 'badge pending'
+          var text = '待检测'
+          if (state) {
+            if (state.scanning) {
+              cls = 'badge pending'
+              text = '检测中…'
+            } else if (state.available) {
+              cls = 'badge idle'
+              text = '可用'
+            } else if (state.reason === 'mt-in-use') {
+              cls = 'badge self'
+              text = 'MT Launcher 已占用'
+            } else if (state.reason === 'occupied') {
+              cls = 'badge occupied'
+              text = '被其他程序占用'
+            } else {
+              cls = 'badge failed'
+              text = '检测失败'
+            }
+          }
+          badge.className = cls
+          badge.textContent = text
+          updateCustomOccupants(state)
+        }
+
+        function updateCustomOccupants(state) {
+          var occLine = document.getElementById('customOccupants')
+          if (!occLine) return
+          var text = occupantsText(state)
+          if (text) {
+            occLine.innerHTML = '<b>可能占用：</b>' + text
+            occLine.style.display = ''
+          } else {
+            occLine.innerHTML = ''
+            occLine.style.display = 'none'
+          }
+        }
+
+        function probeCustom() {
+          var input = document.getElementById('customInput')
+          var combo = (input.value || '').trim()
+          if (!combo) {
+            renderCustom('', null)
+            input.focus()
+            return
+          }
+          renderCustom(combo, { scanning: true })
+          if (!api || typeof api.hotkeyRadarProbe !== 'function') {
+            renderCustom(combo, { available: false, reason: 'error' })
+            return
+          }
+          api
+            .hotkeyRadarProbe(combo)
+            .then(function (res) {
+              customState = res || { available: false, reason: 'error' }
+              renderCustom(combo, customState)
+            })
+            .catch(function () {
+              customState = { available: false, reason: 'error' }
+              renderCustom(combo, customState)
+            })
+        }
+
+        function stopCustomRecording(acc) {
+          customRecording = false
+          var btn = document.getElementById('recordBtn')
+          btn.textContent = '录制'
+          btn.disabled = false
+          var input = document.getElementById('customInput')
+          input.disabled = false
+          var hint = document.getElementById('customHint')
+          hint.textContent =
+            '提示：若想检测的热键已被其他软件全局占用，按下录制可能无响应，此时请直接手动输入后点击「检测」。'
+          if (customRecordHandler) {
+            window.removeEventListener('keydown', customRecordHandler, true)
+            customRecordHandler = null
+          }
+          if (acc) {
+            input.value = acc
+            probeCustom()
+          }
+        }
+
+        function startCustomRecording() {
+          if (customRecording) return
+          customRecording = true
+          var btn = document.getElementById('recordBtn')
+          btn.textContent = '请按下组合键…'
+          btn.disabled = true
+          document.getElementById('customInput').disabled = true
+          var hint = document.getElementById('customHint')
+          hint.textContent =
+            '正在监听按键：请按下你要检测的组合键（如 Ctrl+Alt+A）。若按键无反应，说明该组合键已被系统或其他程序全局拦截，请手动输入后点击「检测」。'
+          customRecordHandler = function (e) {
+            var acc = toAccelerator(e)
+            if (!acc) return
+            e.preventDefault()
+            stopCustomRecording(acc)
+          }
+          window.addEventListener('keydown', customRecordHandler, true)
+        }
+
+        function initCollapse() {
+          var heads = document.querySelectorAll('.collapse-head')
+          for (var i = 0; i < heads.length; i++) {
+            heads[i].addEventListener('click', function () {
+              var body = this.nextElementSibling
+              if (!body) return
+              var collapsed = body.classList.toggle('collapsed')
+              var arrow = this.querySelector('.arrow')
+              if (arrow) arrow.textContent = collapsed ? '▸' : '▾'
+            })
+          }
+        }
+
+        document.getElementById('scanAll').addEventListener('click', runScan)
+        document.getElementById('probeBtn').addEventListener('click', probeCustom)
+        document.getElementById('recordBtn').addEventListener('click', startCustomRecording)
+        document.getElementById('customInput').addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            probeCustom()
+          }
+          e.stopPropagation()
+        })
+        document.getElementById('customInput').addEventListener('input', function () {
+          renderCustom('', null)
+        })
+        initCollapse()
+        renderPresets()
+        renderCheatsheet()
+        runScan()
+      })()
+    </script>
+  </body>
+</html>

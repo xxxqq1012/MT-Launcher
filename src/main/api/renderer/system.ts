@@ -1,4 +1,4 @@
-import { app, clipboard, ipcMain, Menu, nativeImage, shell } from 'electron'
+import { app, clipboard, dialog, ipcMain, Menu, nativeImage, shell } from 'electron'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
@@ -48,6 +48,17 @@ export class SystemAPI {
     )
     ipcMain.handle('select-avatar', () => this.selectAvatar())
     ipcMain.handle('select-image-file', () => this.selectImageFile())
+
+    // 插件 uTools 兼容：文件对话框与路径查询（同步语义，与 utools.showOpenDialog / showSaveDialog / getPath 一致）
+    ipcMain.on('ztools:show-open-dialog', (event, opts) => {
+      event.returnValue = this.showOpenDialogSync(opts)
+    })
+    ipcMain.on('ztools:show-save-dialog', (event, opts) => {
+      event.returnValue = this.showSaveDialogSync(opts)
+    })
+    ipcMain.on('ztools:get-path', (event, name) => {
+      event.returnValue = this.getPath(name)
+    })
 
     // App Info
     ipcMain.handle('get-app-version', () => app.getVersion())
@@ -276,6 +287,53 @@ export class SystemAPI {
       console.error('[System] 选择图片失败:', error)
       return { success: false, error: error instanceof Error ? error.message : '未知错误' }
     }
+  }
+
+  /**
+   * 插件 uTools 兼容：打开文件/目录选择框（同步，阻塞渲染进程直至用户关闭对话框）。
+   * 返回形态与 uTools 一致：目录选择返回单个路径字符串，文件选择返回路径数组，取消返回 undefined。
+   */
+  public showOpenDialogSync(opts?: any): any {
+    try {
+      const options = opts || {}
+      const r = dialog.showOpenDialogSync(options)
+      if (!r || !r.length) return undefined
+      return options.properties?.includes('openDirectory') ? r[0] : r
+    } catch (error) {
+      console.error('[System] 插件打开对话框失败:', error)
+      return undefined
+    }
+  }
+
+  /**
+   * 插件 uTools 兼容：打开保存对话框（同步），返回保存路径，取消返回 undefined。
+   */
+  public showSaveDialogSync(opts?: any): string | undefined {
+    try {
+      const r = dialog.showSaveDialogSync(opts || {})
+      if (!r) return undefined
+      return r
+    } catch (error) {
+      console.error('[System] 插件保存对话框失败:', error)
+      return undefined
+    }
+  }
+
+  /**
+   * 插件 uTools 兼容：按名称返回常见系统路径（userData/appData/downloads/temp/home/desktop/documents）。
+   */
+  public getPath(name?: string): string {
+    const key = String(name || '')
+    const map: Record<string, string> = {
+      userData: app.getPath('userData'),
+      appData: app.getPath('appData'),
+      downloads: app.getPath('downloads'),
+      temp: app.getPath('temp'),
+      home: app.getPath('home'),
+      desktop: app.getPath('desktop'),
+      documents: app.getPath('documents')
+    }
+    return map[key] || app.getPath('home')
   }
 
   /**

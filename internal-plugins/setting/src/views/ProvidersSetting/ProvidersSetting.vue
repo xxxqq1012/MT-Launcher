@@ -3,22 +3,31 @@ import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import AiModelsSetting from '@/views/AiModelsSetting/AiModelsSetting.vue'
 import TranslationProviders from './components/TranslationProviders.vue'
+import McpServiceSetting from '@/views/McpServiceSetting/McpServiceSetting.vue'
+import DebugSetting from '@/views/DebugSetting/DebugSetting.vue'
+import PermissionSetting from '@/views/PermissionSetting/PermissionSetting.vue'
+import HttpServiceSetting from '@/views/HttpServiceSetting/HttpServiceSetting.vue'
 
-type Tab = 'ai' | 'translation'
+type Tab = 'ai' | 'translation' | 'mcp' | 'debug' | 'permissions' | 'http'
 
 const route = useRoute()
 
 // 支持通过 query.tab 深链直达某个 tab（如通用设置页的「前往翻译」）
 const initialTab = ((): Tab => {
   const t = typeof route.query.tab === 'string' ? route.query.tab : ''
-  return t === 'translation' || t === 'ai' ? (t as Tab) : 'ai'
+  const validTabs: Tab[] = ['ai', 'translation', 'mcp', 'debug', 'permissions', 'http']
+  return validTabs.includes(t as Tab) ? (t as Tab) : 'ai'
 })()
 
 const activeTab = ref<Tab>(initialTab)
 
 const tabs: Array<{ key: Tab; label: string }> = [
   { key: 'ai', label: 'AI' },
-  { key: 'translation', label: '翻译' }
+  { key: 'translation', label: '翻译' },
+  { key: 'mcp', label: 'MCP服务' },
+  { key: 'debug', label: '调试日志' },
+  { key: 'permissions', label: '高级权限' },
+  { key: 'http', label: 'HTTP服务' }
 ]
 </script>
 
@@ -43,6 +52,10 @@ const tabs: Array<{ key: Tab; label: string }> = [
     <div class="providers-content">
       <AiModelsSetting v-show="activeTab === 'ai'" />
       <TranslationProviders v-if="activeTab === 'translation'" />
+      <McpServiceSetting v-if="activeTab === 'mcp'" />
+      <DebugSetting v-if="activeTab === 'debug'" />
+      <PermissionSetting v-if="activeTab === 'permissions'" />
+      <HttpServiceSetting v-if="activeTab === 'http'" />
     </div>
   </div>
 </template>
@@ -59,6 +72,7 @@ const tabs: Array<{ key: Tab; label: string }> = [
 .providers-tabs {
   padding: 12px 20px 0;
   flex-shrink: 0;
+  overflow-x: auto;
 }
 
 .providers-content {
@@ -90,6 +104,7 @@ const tabs: Array<{ key: Tab; label: string }> = [
   cursor: pointer;
   transition: all 0.2s;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .tab-btn:hover {

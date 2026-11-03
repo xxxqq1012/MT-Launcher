@@ -1,10 +1,32 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useToast, AdaptiveIcon, DetailPanel } from '@/components'
 import ProgressCircleButton from '@/components/common/ProgressCircleButton/ProgressCircleButton.vue'
 import { weightedSearch } from '@/utils'
 import { useZtoolsSubInput } from '@/composables'
 import { ACCOUNT_CHANGED_EVENT } from '@/composables/useZToolsAccount'
+import SyncSetting from '@/views/SyncSetting/SyncSetting.vue'
+import DataMigrationTab from '@/views/DataMigrationTab/DataMigrationTab.vue'
+
+type DataTab = 'data' | 'sync' | 'migrate'
+
+const route = useRoute()
+
+// 支持通过 query.tab 深链直达某个 tab（与高级服务壳页保持一致）。
+const initialTab = ((): DataTab => {
+  const t = typeof route.query.tab === 'string' ? route.query.tab : ''
+  const validTabs: DataTab[] = ['data', 'sync', 'migrate']
+  return validTabs.includes(t as DataTab) ? (t as DataTab) : 'data'
+})()
+
+const activeTab = ref<DataTab>(initialTab)
+
+const dataTabs: Array<{ key: DataTab; label: string }> = [
+  { key: 'data', label: '我的数据' },
+  { key: 'sync', label: '数据同步' },
+  { key: 'migrate', label: '数据迁移' }
+]
 
 const { success, error, confirm } = useToast()
 
@@ -452,158 +474,253 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="data-management">
-    <!-- 主内容：插件列表 -->
-    <Transition name="list-slide">
-      <div v-show="currentLevel === 'main'" class="main-content">
-        <div v-if="!isLoaded" class="empty">
-          <p>正在加载数据...</p>
-        </div>
-
-        <div v-else-if="filteredPluginDataList.length === 0" class="empty">
-          <p>暂无插件数据</p>
-        </div>
-
-        <div v-else class="plugin-list">
-          <div
-            v-for="pluginData in filteredPluginDataList"
-            :key="getPluginDataKey(pluginData)"
-            class="card plugin-card"
-            :class="{ 'ztools-card': pluginData.pluginName === 'ZTOOLS' }"
-            @click="viewPluginDocs(pluginData)"
-          >
-            <!-- 图标区域（含 DEV 角标） -->
-            <div class="plugin-icon-wrapper">
-              <!-- 主程序特殊图标 -->
-              <div
-                v-if="pluginData.pluginName === 'ZTOOLS'"
-                class="plugin-icon-placeholder ztools-icon"
-              >
-                <div class="i-z-database font-size-24px" />
-              </div>
-              <!-- 插件图标 -->
-              <AdaptiveIcon
-                v-else-if="getPluginLogo(pluginData)"
-                :src="getPluginLogo(pluginData)!"
-                class="plugin-icon"
-                alt="插件图标"
-                draggable="false"
-              />
-              <div v-else class="plugin-icon-placeholder">
-                <div class="i-z-plugin font-size-24px"></div>
-              </div>
-              <span v-if="pluginData.isDevelopment" class="plugin-dev-badge">DEV</span>
-            </div>
-
-            <div class="plugin-info">
-              <h3 class="plugin-name">
-                <span>{{ getDisplayName(pluginData) }}</span>
-                <span v-if="!isPluginInstalled(pluginData)" class="plugin-missing-badge"
-                  >未安装</span
-                >
-              </h3>
-              <span class="doc-count"
-                >{{ pluginData.docCount }} 个文档 / {{ pluginData.attachmentCount }} 个附件</span
-              >
-            </div>
-
-            <ProgressCircleButton
-              v-if="canDownloadPlugin(pluginData)"
-              class="download-plugin-btn"
-              title="从官方市场下载安装"
-              :active-title="
-                getDownloadState(pluginData.pluginName)?.status === 'installing'
-                  ? '安装中'
-                  : '取消下载'
-              "
-              :active="!!getDownloadState(pluginData.pluginName)"
-              :progress="getDownloadState(pluginData.pluginName)?.progress ?? null"
-              :disabled="
-                getDownloadState(pluginData.pluginName)?.status === 'installing' ||
-                (!!installingPlugin &&
-                  installingPlugin !== pluginData.pluginName &&
-                  getDownloadState(pluginData.pluginName)?.status !== 'downloading')
-              "
-              @click.stop="downloadPlugin(pluginData)"
-            >
-              <div class="i-z-download font-size-16px" />
-            </ProgressCircleButton>
-            <button class="icon-btn" title="查看文档">
-              <div class="i-z-search font-size-18px" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
-    <!-- 二级页面：文档列表 -->
-    <DetailPanel
-      v-show="currentLevel === 'docList'"
-      :title="currentPluginDetailTitle"
-      :class="docListAnimationClass"
-      @back="closeDocListModal"
-    >
-      <div v-if="currentPluginData?.pluginName !== 'ZTOOLS'" class="detail-header-actions">
-        <button class="btn btn-danger" @click="handleClearData">
-          <div class="i-z-trash font-size-16px" />
-          <span>清空所有数据</span>
+  <div class="data-container">
+    <!-- 顶部 Tab -->
+    <div class="data-tabs">
+      <div class="tab-group">
+        <button
+          v-for="tab in dataTabs"
+          :key="tab.key"
+          class="tab-btn"
+          :class="{ active: activeTab === tab.key }"
+          @click="activeTab = tab.key"
+        >
+          {{ tab.label }}
         </button>
       </div>
-      <div v-if="docKeys.length === 0" class="empty">暂无文档</div>
-      <div v-else class="doc-list">
-        <div
-          v-for="docItem in docKeys"
-          :key="docItem.key"
-          class="card doc-card"
-          :class="{ active: selectedDocKey === docItem.key }"
-          @click="viewDocContent(docItem.key)"
-        >
-          <span class="doc-key">{{ docItem.key }}</span>
-          <button
-            class="icon-btn delete-doc-btn"
-            title="删除文档"
-            @click.stop="deleteDocContent(docItem)"
+    </div>
+
+    <!-- 内容区：每个 tab 独立视图 -->
+    <div class="data-content">
+      <!-- 页签1：我的数据（插件数据管理） -->
+      <div v-show="activeTab === 'data'" class="data-tab-pane">
+        <div class="data-management">
+          <!-- 主内容：插件列表 -->
+          <Transition name="list-slide">
+            <div v-show="currentLevel === 'main'" class="main-content">
+              <div v-if="!isLoaded" class="empty">
+                <p>正在加载数据...</p>
+              </div>
+
+              <div v-else-if="filteredPluginDataList.length === 0" class="empty">
+                <p>暂无插件数据</p>
+              </div>
+
+              <div v-else class="plugin-list">
+                <div
+                  v-for="pluginData in filteredPluginDataList"
+                  :key="getPluginDataKey(pluginData)"
+                  class="card plugin-card"
+                  :class="{ 'ztools-card': pluginData.pluginName === 'ZTOOLS' }"
+                  @click="viewPluginDocs(pluginData)"
+                >
+                  <!-- 图标区域（含 DEV 角标） -->
+                  <div class="plugin-icon-wrapper">
+                    <!-- 主程序特殊图标 -->
+                    <div
+                      v-if="pluginData.pluginName === 'ZTOOLS'"
+                      class="plugin-icon-placeholder ztools-icon"
+                    >
+                      <div class="i-z-database font-size-24px" />
+                    </div>
+                    <!-- 插件图标 -->
+                    <AdaptiveIcon
+                      v-else-if="getPluginLogo(pluginData)"
+                      :src="getPluginLogo(pluginData)!"
+                      class="plugin-icon"
+                      alt="插件图标"
+                      draggable="false"
+                    />
+                    <div v-else class="plugin-icon-placeholder">
+                      <div class="i-z-plugin font-size-24px"></div>
+                    </div>
+                    <span v-if="pluginData.isDevelopment" class="plugin-dev-badge">DEV</span>
+                  </div>
+
+                  <div class="plugin-info">
+                    <h3 class="plugin-name">
+                      <span>{{ getDisplayName(pluginData) }}</span>
+                      <span v-if="!isPluginInstalled(pluginData)" class="plugin-missing-badge"
+                        >未安装</span
+                      >
+                    </h3>
+                    <span class="doc-count"
+                      >{{ pluginData.docCount }} 个文档 /
+                      {{ pluginData.attachmentCount }} 个附件</span
+                    >
+                  </div>
+
+                  <ProgressCircleButton
+                    v-if="canDownloadPlugin(pluginData)"
+                    class="download-plugin-btn"
+                    title="从官方市场下载安装"
+                    :active-title="
+                      getDownloadState(pluginData.pluginName)?.status === 'installing'
+                        ? '安装中'
+                        : '取消下载'
+                    "
+                    :active="!!getDownloadState(pluginData.pluginName)"
+                    :progress="getDownloadState(pluginData.pluginName)?.progress ?? null"
+                    :disabled="
+                      getDownloadState(pluginData.pluginName)?.status === 'installing' ||
+                      (!!installingPlugin &&
+                        installingPlugin !== pluginData.pluginName &&
+                        getDownloadState(pluginData.pluginName)?.status !== 'downloading')
+                    "
+                    @click.stop="downloadPlugin(pluginData)"
+                  >
+                    <div class="i-z-download font-size-16px" />
+                  </ProgressCircleButton>
+                  <button class="icon-btn" title="查看文档">
+                    <div class="i-z-search font-size-18px" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Transition>
+
+          <!-- 二级页面：文档列表 -->
+          <DetailPanel
+            v-show="currentLevel === 'docList'"
+            :title="currentPluginDetailTitle"
+            :class="docListAnimationClass"
+            @back="closeDocListModal"
           >
-            <div class="i-z-trash font-size-16px" />
-          </button>
-          <button
-            class="icon-btn export-doc-btn"
-            title="导出文档"
-            @click.stop="exportDocContent(docItem)"
-          >
-            <div class="i-z-download font-size-16px" />
-          </button>
-          <span class="doc-type-badge" :class="`type-${docItem.type}`">
-            {{ docItem.type === 'document' ? '文档' : '附件' }}
-          </span>
+            <div v-if="currentPluginData?.pluginName !== 'ZTOOLS'" class="detail-header-actions">
+              <button class="btn btn-danger" @click="handleClearData">
+                <div class="i-z-trash font-size-16px" />
+                <span>清空所有数据</span>
+              </button>
+            </div>
+            <div v-if="docKeys.length === 0" class="empty">暂无文档</div>
+            <div v-else class="doc-list">
+              <div
+                v-for="docItem in docKeys"
+                :key="docItem.key"
+                class="card doc-card"
+                :class="{ active: selectedDocKey === docItem.key }"
+                @click="viewDocContent(docItem.key)"
+              >
+                <span class="doc-key">{{ docItem.key }}</span>
+                <button
+                  class="icon-btn delete-doc-btn"
+                  title="删除文档"
+                  @click.stop="deleteDocContent(docItem)"
+                >
+                  <div class="i-z-trash font-size-16px" />
+                </button>
+                <button
+                  class="icon-btn export-doc-btn"
+                  title="导出文档"
+                  @click.stop="exportDocContent(docItem)"
+                >
+                  <div class="i-z-download font-size-16px" />
+                </button>
+                <span class="doc-type-badge" :class="`type-${docItem.type}`">
+                  {{ docItem.type === 'document' ? '文档' : '附件' }}
+                </span>
+              </div>
+            </div>
+          </DetailPanel>
+
+          <!-- 三级页面：文档详情 -->
+          <Transition name="slide">
+            <DetailPanel
+              v-if="currentLevel === 'docDetail'"
+              title="文档详情"
+              @back="closeDocDetailModal"
+            >
+              <div class="doc-detail-content">
+                <div class="doc-key-display">
+                  <span class="label">Key:</span>
+                  <span class="value">{{ selectedDocKey }}</span>
+                </div>
+                <div class="doc-key-display">
+                  <span class="label">类型:</span>
+                  <span class="value type-badge" :class="`type-${currentDocType}`">
+                    {{ currentDocType === 'document' ? '文档' : '附件' }}
+                  </span>
+                </div>
+                <div class="doc-content">
+                  <pre>{{ formattedDocContent }}</pre>
+                </div>
+              </div>
+            </DetailPanel>
+          </Transition>
         </div>
       </div>
-    </DetailPanel>
 
-    <!-- 三级页面：文档详情 -->
-    <Transition name="slide">
-      <DetailPanel v-if="currentLevel === 'docDetail'" title="文档详情" @back="closeDocDetailModal">
-        <div class="doc-detail-content">
-          <div class="doc-key-display">
-            <span class="label">Key:</span>
-            <span class="value">{{ selectedDocKey }}</span>
-          </div>
-          <div class="doc-key-display">
-            <span class="label">类型:</span>
-            <span class="value type-badge" :class="`type-${currentDocType}`">
-              {{ currentDocType === 'document' ? '文档' : '附件' }}
-            </span>
-          </div>
-          <div class="doc-content">
-            <pre>{{ formattedDocContent }}</pre>
-          </div>
-        </div>
-      </DetailPanel>
-    </Transition>
+      <!-- 页签2：数据同步（自高级服务迁移） -->
+      <SyncSetting v-if="activeTab === 'sync'" />
+
+      <!-- 页签3：数据迁移 -->
+      <DataMigrationTab v-if="activeTab === 'migrate'" />
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* 三页签壳页：与高级服务页签样式保持一致 */
+.data-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-color);
+}
+
+.data-tabs {
+  padding: 12px 20px 0;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.data-content {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.data-tab-pane {
+  height: 100%;
+}
+
+.tab-group {
+  display: flex;
+  gap: 6px;
+  background: var(--control-bg);
+  padding: 3px;
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-color);
+}
+
+.tab-btn.active {
+  background: var(--active-bg);
+  color: var(--primary-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
 .data-management {
   position: relative; /* 使详情面板能够覆盖该区域 */
   height: 100%;

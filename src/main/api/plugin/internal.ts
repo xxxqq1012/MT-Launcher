@@ -1,4 +1,4 @@
-import { app, dialog, IpcMainInvokeEvent, ipcMain } from 'electron'
+import { app, dialog, globalShortcut, IpcMainInvokeEvent, ipcMain } from 'electron'
 import type { PluginManager } from '../../managers/pluginManager'
 import windowManager from '../../managers/windowManager.js'
 import dndManager from '../../core/dndManager.js'
@@ -32,6 +32,9 @@ import {
 } from '@shared/commandShared'
 import { normalizeSearchWallpaperConfig, type SearchWallpaperConfig } from '@shared/searchWallpaper'
 import { registerInternalApiChannel } from '../../core/internalPlugins'
+import { getDataMigrationInfo, performDataMigration } from '../../core/appData/dataMigration'
+import { matchOccupantCandidates } from '../../core/hotkeyOccupants'
+import syncAPI from '../renderer/sync.js'
 
 /**
  * 权限错误类
@@ -786,6 +789,70 @@ export class InternalPluginAPI {
         return await settingsAPI.updateGlobalShortcutConfig(shortcut, config)
       }
     )
+
+    // ==================== 热键占用探测 API（hotkey-radar 基础插件） ====================
+    this.handleInternal('internal:hotkey-radar-probe', async (event, shortcut: string) => {
+      this.requireApi(event, 'internal:hotkey-radar-probe')
+      if (typeof shortcut !== 'string' || !shortcut.trim()) {
+        return { available: false, reason: 'invalid' }
+      }
+      try {
+        // 先查自身是否已注册该热键，再通过试注册探测是否被其他程序占用。
+        if (globalShortcut.isRegistered(shortcut)) {
+          return { available: false, reason: 'mt-in-use' }
+        }
+        const ok = globalShortcut.register(shortcut, () => {})
+        if (!ok) {
+          // 被其他程序占用时，附加常见占用程序候选（含正在运行的进程标记）。
+          const occupants = await matchOccupantCandidates(shortcut)
+          return { available: false, reason: 'occupied', occupants }
+        }
+        globalShortcut.unregister(shortcut)
+        return { available: true }
+      } catch (err) {
+        console.error('[HotkeyRadar] 探测快捷键失败:', shortcut, err)
+        return { available: false, reason: 'error' }
+      }
+    })
+
+    // ==================== 数据迁移 API（我的数据 - 数据迁移） ====================
+    this.handleInternal('internal:data-migration-get-info', async (event) => {
+      this.requireApi(event, 'internal:data-migration-get-info')
+      return getDataMigrationInfo()
+    })
+
+    this.handleInternal('internal:data-migration-select-target', async (event) => {
+      this.requireApi(event, 'internal:data-migration-select-target')
+      const options: Electron.OpenDialogOptions = {
+        title: '选择 MT Launcher 新数据目录',
+        buttonLabel: '选择此目录',
+        properties: ['openDirectory', 'createDirectory'],
+        message: '请选择一个空目录作为新的数据根目录，确认迁移后全部数据将复制到该目录。'
+      }
+      const win = windowManager.getMainWindow?.() || null
+      const result = win
+        ? await dialog.showOpenDialog(win, options)
+        : await dialog.showOpenDialog(options)
+      if (result.canceled || !result.filePaths?.length) {
+        return { success: false, cancelled: true }
+      }
+      return { success: true, target: result.filePaths[0] }
+    })
+
+    this.handleInternal('internal:data-migration-perform', async (event, target: string) => {
+      this.requireApi(event, 'internal:data-migration-perform')
+      // 迁移前停止自动同步，降低 LMDB 写入期间复制不一致的风险。
+      syncAPI.stopAutoSync()
+      return await performDataMigration(target)
+    })
+
+    this.handleInternal('internal:data-migration-restart', async (event) => {
+      this.requireApi(event, 'internal:data-migration-restart')
+      // 引导文件已指向新目录，重启后应用即从新数据根目录读写。
+      app.relaunch()
+      app.exit(0)
+      return { success: true }
+    })
 
     // ==================== 应用快捷键 API ====================
     this.handleInternal(

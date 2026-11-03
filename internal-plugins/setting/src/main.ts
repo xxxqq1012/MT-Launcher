@@ -12,6 +12,17 @@ ztools.onPluginEnter((action) => {
   // 将 utools 事件派发根据不同的 code 进行派发出去
   console.log('[插件事件: onPluginEnter]', action)
   dispatchZtoolsCodeEvent(action, router)
+  // 3.2.23：宿主带 tab 打开设置（如 mindnote「模型设置」→ 'ai'）→ 直达「高级服务」对应页签
+  // 3.2.25：宿主 onPluginEnter 回调收到的 action 就是本次启动参数本身（{tab:'ai'}），
+  // 并非 uTools 标准的 {code,type,payload} 包装 —— 旧实现只读 action.payload 导致 tab 永远读不到，
+  // 点「模型配置」只落设置主页。这里对两种结构做兼容（action.payload 或 action 本身）。
+  const raw = (action && (action.payload || action)) || {}
+  const tab = typeof raw === 'object' && typeof raw.tab === 'string' ? raw.tab : ''
+  if (tab) {
+    void router.replace({ path: '/providers', query: { tab } }).catch((error) => {
+      console.error('[插件事件] 页签跳转失败', error)
+    })
+  }
   // 设置视图会被宿主缓存复用，每次重新进入都要从服务端刷新账号资料。
   void refreshAccountProfile({ force: true })
 })

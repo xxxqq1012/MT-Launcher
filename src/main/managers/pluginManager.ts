@@ -1126,14 +1126,16 @@ export class PluginManager {
       }
       this.pluginViews.push(pluginInfo)
 
-      // 预加载后视图处于后台态，按策略设置节流（默认启用，backgroundRunning=true 例外）
-      this.applyBackgroundThrottlingByPolicy(view, pluginPath, true)
+      // 加载期间禁用后台节流，避免慢页面（如 mindnote）就绪被拖延；就绪后恢复后台策略。
+      view.webContents.backgroundThrottling = false
 
       // 就绪监听先于导航建立；主题在每次导航后恢复，不依赖当前主窗口请求。
       view.webContents.on('dom-ready', () => {
         // 后台页面也需要先具备主题色，避免首次切到前台时出现颜色闪烁。
         void view.webContents.insertCSS(GLOBAL_SCROLLBAR_CSS)
         void view.webContents.insertCSS(buildPluginThemeCSS(getCurrentPluginThemeState()))
+        // 页面已就绪，恢复后台节流以节省资源（backgroundRunning=true 例外）
+        this.applyBackgroundThrottlingByPolicy(view, pluginPath, true)
         console.log('[Plugin] 后台预加载插件完成:', {
           pluginName: effectiveName,
           pluginPath,

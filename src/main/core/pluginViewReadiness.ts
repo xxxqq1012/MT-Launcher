@@ -15,7 +15,7 @@ export interface PluginViewReadiness {
  */
 export function createPluginViewReadiness(
   contents: WebContents,
-  timeoutMs: number = 5000
+  timeoutMs: number = 20000
 ): PluginViewReadiness {
   // 已销毁的视图不能再注册监听，也不能产生永远无法完成的等待。
   if (contents.isDestroyed()) return { isReady: false, ready: Promise.resolve(false) }

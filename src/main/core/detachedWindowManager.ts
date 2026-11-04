@@ -289,6 +289,21 @@ class DetachedWindowManager {
           ? 'http://localhost:5174/detached-titlebar.html'
           : pathToFileURL(getRendererPath('detached-titlebar.html')).href
 
+      // 根据窗口当前内容区与标题栏高度重算插件视图边界。
+      // 标题栏由窗口自身渲染，插件视图必须跟随窗口尺寸变化，否则最大化/还原后
+      // 视图停留在旧高度，窗口底部会露出大片标题栏页面空白。
+      const layoutPluginView = (): void => {
+        if (win.isDestroyed() || pluginView.webContents.isDestroyed()) return
+        const bounds = win.getContentBounds()
+        const currentTitlebarHeight = this.getTitlebarHeight()
+        pluginView.setBounds({
+          x: 0,
+          y: currentTitlebarHeight,
+          width: bounds.width,
+          height: Math.max(0, bounds.height - currentTitlebarHeight)
+        })
+      }
+
       win.loadURL(titlebarUrl)
 
       // 标题栏加载完成后发送插件信息，并添加插件视图
@@ -314,15 +329,13 @@ class DetachedWindowManager {
         win.webContents.insertCSS(GLOBAL_SCROLLBAR_CSS)
 
         // 添加插件视图（在标题栏下方）
-        const bounds = win.getContentBounds()
-        const currentTitlebarHeight = this.getTitlebarHeight()
-        pluginView.setBounds({
-          x: 0,
-          y: currentTitlebarHeight,
-          width: bounds.width,
-          height: bounds.height - currentTitlebarHeight
-        })
+        layoutPluginView()
         win.contentView.addChildView(pluginView)
+
+        // maximize 在部分平台异步生效，延迟重算一次避免插件视图停在分离前高度。
+        setTimeout(() => {
+          if (!win.isDestroyed() && !pluginView.webContents.isDestroyed()) layoutPluginView()
+        }, 80)
 
         // 如果需要自动聚焦子输入框，延迟聚焦搜索框（等待 DOM 渲染完成）
         if (options.autoFocusSubInput === true) {
@@ -342,27 +355,32 @@ class DetachedWindowManager {
 
       // 监听窗口大小变化
       win.on('resize', () => {
-        if (!win.isDestroyed()) {
-          const newBounds = win.getContentBounds()
-          const currentTitlebarHeight = this.getTitlebarHeight()
-          // 只需要更新插件视图大小（标题栏由窗口自动处理）
-          pluginView.setBounds({
-            x: 0,
-            y: currentTitlebarHeight,
-            width: newBounds.width,
-            height: newBounds.height - currentTitlebarHeight
-          })
-
-          // 升级期间的 0 高度是临时状态，不得覆盖用户保存的窗口尺寸。
-          if (!this.suppressedSizePersistenceWindows.has(windowId)) {
-            this.schedulePersistWindowSize(
-              windowId,
-              pluginName,
-              newBounds.width,
-              newBounds.height - currentTitlebarHeight
-            )
-          }
+        if (win.isDestroyed()) return
+        layoutPluginView()
+        const newBounds = win.getContentBounds()
+        const currentTitlebarHeight = this.getTitlebarHeight()
+        // 升级期间的 0 高度是临时状态，不得覆盖用户保存的窗口尺寸。
+        if (!this.suppressedSizePersistenceWindows.has(windowId)) {
+          this.schedulePersistWindowSize(
+            windowId,
+            pluginName,
+            newBounds.width,
+            newBounds.height - currentTitlebarHeight
+          )
         }
+      })
+
+      // maximize/unmaximize/restore 在部分平台（尤其 Windows 无边框窗口）不触发 resize，
+      // 需显式重算插件视图边界，否则分离窗口最大化后插件视图停留在分离前高度，
+      // 窗口底部露出大片空白（表现为「底部一大片导航栏/工具栏」）。
+      win.on('maximize', () => {
+        if (!win.isDestroyed()) layoutPluginView()
+      })
+      win.on('unmaximize', () => {
+        if (!win.isDestroyed()) layoutPluginView()
+      })
+      win.on('restore', () => {
+        if (!win.isDestroyed()) layoutPluginView()
       })
 
       // 保存窗口信息

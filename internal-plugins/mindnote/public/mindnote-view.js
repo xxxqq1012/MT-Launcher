@@ -177,9 +177,65 @@
     }
   }
 
+  // 3.2.28：文件夹目录顺序跳动根因之二——bundle 的 loadNoteList（ae→Uu）对「组内存在
+  // sortOrder==null 笔记」的文件夹每次全量重排并写回，顺序被 updatedAt（编辑时间）支配，
+  // 任何一篇保存/拉取后 updatedAt 变化 → 下次刷新顺序就变（“随机跳动”）。
+  // 这里在每次刷新前把 null sortOrder 一次性固化（按当前列表位置 (i+1)*100），此后组内无
+  // null，bundle 的 Uu 不再触发，顺序由 sortOrder 唯一决定（稳定）。
+  function stabilizeSortOrder() {
+    try {
+      var mn = window.mindnote
+      if (!mn || typeof mn.getNoteList !== 'function' || typeof mn.saveNote !== 'function') return
+      var list = mn.getNoteList() || []
+      var patch = []
+      for (var i = 0; i < list.length; i++) {
+        var n = list[i]
+        if (n && n.id != null && n.sortOrder == null)
+          patch.push({ id: n.id, sortOrder: (i + 1) * 100 })
+      }
+      if (!patch.length) return
+      for (var j = 0; j < patch.length; j++) {
+        var note = mn.getNote(patch[j].id)
+        if (note) {
+          note.sortOrder = patch[j].sortOrder
+          try {
+            mn.saveNote(note.id, note)
+          } catch (e) {}
+        }
+      }
+      // 同步列表缓存里的 sortOrder：否则 bundle loadNoteList 重读列表项仍是 null →
+      // Uu 每次刷新重新重排（顺序跳动复现），必须让列表缓存与 note 文档一致
+      var nl = mn.getNoteList ? mn.getNoteList() : null
+      var touched = false
+      if (Array.isArray(nl)) {
+        for (var k = 0; k < patch.length; k++) {
+          var pi = patch[k]
+          for (var m = 0; m < nl.length; m++) {
+            if (nl[m] && nl[m].id === pi.id && nl[m].sortOrder == null) {
+              nl[m].sortOrder = pi.sortOrder
+              touched = true
+            }
+          }
+        }
+        if (touched && typeof mn.saveNoteList === 'function') {
+          try {
+            mn.saveNoteList(nl)
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
+  }
+  // 导出给宿主/测试/右键刷新等外部入口直接调用（幂等：无 null 时不产生任何写）
+  try {
+    if (window.mindnote) window.mindnote.stabilizeSortOrder = stabilizeSortOrder
+  } catch (e) {}
+
   // 刷新文件夹区（笔记+文件夹树）：先强制重扫磁盘 md 列表（3.2.25：git 拉取落盘的新文件
   // 不会自动进 mfStorage 缓存），再调用 bundle store 的 loadNoteList（同源重读）
   function refreshFileArea() {
+    try {
+      stabilizeSortOrder()
+    } catch (e) {}
     try {
       if (window.mindnote && typeof window.mindnote.refreshNoteListFromDisk === 'function') {
         window.mindnote.refreshNoteListFromDisk()

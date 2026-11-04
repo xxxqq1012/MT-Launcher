@@ -161,21 +161,63 @@ function installUtoolsShim() {
     function mdId(base) {
       return FILE_PREFIX + String(base)
     }
+    // 3.2.28：md 桥笔记的排序/时间元数据不再每次从文件现算（旧实现 sortOrder 恒 0 →
+    // bundle Bu 排序中 0 永远小于本地笔记（100+）导致磁盘 md 恒置顶；且 md 之间按
+    // updatedAt(=文件 mtime) 降序，git pull/外部修改/空转重写都会改 mtime → 目录顺序跳动）。
+    // 改为：sortOrder/updatedAt/createdAt 优先沿用 db 持久化值；首次出现的磁盘 md 按
+    // 文件名字典序排在当前列表末尾之后（max+100 递增），保证多个新 md 之间也互不相同且稳定。
+    function mdPersistedVal(base) {
+      try {
+        const all = readAll()
+        const rec = all['kv/mindnote_note_' + mdId(base)]
+        return rec && rec.val ? rec.val : null
+      } catch (e) {
+        return null
+      }
+    }
+    function mdStableSortOrder(base) {
+      const p = mdPersistedVal(base)
+      if (p && p.sortOrder != null) return p.sortOrder
+      let mx = 0
+      try {
+        const lst = readAll()['kv/mindnote_note_list']
+        if (lst && Array.isArray(lst.val)) {
+          lst.val.forEach(function (n) {
+            if (n && typeof n.sortOrder === 'number' && n.sortOrder > mx) mx = n.sortOrder
+          })
+        }
+      } catch (e) {}
+      const files = mdFileList()
+        .slice()
+        .sort(function (a, b) {
+          return String(a.base).localeCompare(String(b.base))
+        })
+      let idx = 0
+      for (let i = 0; i < files.length; i++) {
+        if (files[i].base === base) {
+          idx = i
+          break
+        }
+      }
+      return mx + (idx + 1) * 100
+    }
     function mdDoc(f) {
       var content = ''
       try {
         content = fs.readFileSync(f.full, 'utf8')
       } catch (e) {}
+      const persisted = mdPersistedVal(f.base)
+      const sortOrder = mdStableSortOrder(f.base)
       return {
         _id: 'kv/mindnote_note_' + mdId(f.base),
         val: {
           id: mdId(f.base),
           title: f.base,
           content: content,
-          tags: [],
-          sortOrder: 0,
-          createdAt: f.mtime,
-          updatedAt: f.mtime,
+          tags: persisted && Array.isArray(persisted.tags) ? persisted.tags : [],
+          sortOrder: sortOrder,
+          createdAt: persisted && persisted.createdAt ? persisted.createdAt : f.mtime,
+          updatedAt: persisted && persisted.updatedAt ? persisted.updatedAt : f.mtime,
           _fromFile: true
         },
         size: content.length,
@@ -184,7 +226,13 @@ function installUtoolsShim() {
     }
     function mdListItems() {
       return mdFileList().map(function (f) {
-        return { id: mdId(f.base), title: f.base, updatedAt: f.mtime, sortOrder: 0 }
+        const p = mdPersistedVal(f.base)
+        return {
+          id: mdId(f.base),
+          title: f.base,
+          updatedAt: p && p.updatedAt ? p.updatedAt : f.mtime,
+          sortOrder: mdStableSortOrder(f.base)
+        }
       })
     }
     function mergeMdIntoList(val) {
@@ -309,9 +357,17 @@ function installUtoolsShim() {
               } catch (e) {}
             } else {
               if (oldFile) {
+                // 3.2.28：内容未变化不重写 .md（Uu 重排等空转保存会无条件 writeFileSync
+                // → mtime 空转更新 → mdDoc.updatedAt 变化 → 目录顺序跳动 + git 假变更）
+                let cur = ''
                 try {
-                  fs.writeFileSync(oldFile, content, 'utf8')
+                  cur = fs.readFileSync(oldFile, 'utf8')
                 } catch (e) {}
+                if (cur !== content) {
+                  try {
+                    fs.writeFileSync(oldFile, content, 'utf8')
+                  } catch (e) {}
+                }
               }
               try {
                 if (window.__znotesGit && window.__znotesGit.noteEditActivity)
@@ -363,9 +419,16 @@ function installUtoolsShim() {
                 const content = val.content == null ? '' : String(val.content)
                 const f = mdTargetFile(base)
                 if (f) {
+                  // 3.2.28：同 put 分支——内容未变化不重写 .md，避免 mtime 空转造成顺序跳动
+                  let cur = ''
                   try {
-                    fs.writeFileSync(f, content, 'utf8')
+                    cur = fs.readFileSync(f, 'utf8')
                   } catch (e) {}
+                  if (cur !== content) {
+                    try {
+                      fs.writeFileSync(f, content, 'utf8')
+                    } catch (e) {}
+                  }
                 }
                 // 3.2.25：批量落盘同样触发自动同步计时（与 put 分支一致）
                 try {

@@ -13,6 +13,7 @@ import superPanelManager from '../../core/superPanelManager.js'
 import translationManager from '../../core/translationManager.js'
 import providerManager from '../../core/provider/providerManager.js'
 import aiModelsAPI from '../renderer/aiModels.js'
+import type { AiApiFormat } from '../../../shared/aiProviderShared.js'
 import commandsAPI from '../renderer/commands.js'
 import pluginsAPI from '../renderer/plugins.js'
 import type { DeletePluginOptions } from '../renderer/plugins'
@@ -623,10 +624,14 @@ export class InternalPluginAPI {
 
     this.handleInternal(
       'internal:ai-providers-fetch-models',
-      async (event, apiUrl: string, apiKey: string) => {
+      async (event, apiUrl: string, apiKey: string, apiFormat?: string) => {
         this.requireApi(event, 'internal:ai-providers-fetch-models')
         try {
-          const data = await aiModelsAPI.fetchModels(apiUrl, apiKey)
+          const data = await aiModelsAPI.fetchModels(
+            apiUrl,
+            apiKey,
+            apiFormat as AiApiFormat | undefined
+          )
           return { success: true, data }
         } catch (error: unknown) {
           return {

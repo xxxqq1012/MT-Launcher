@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import OpenAI from 'openai'
 import databaseAPI from '../api/shared/database.js'
 import { HOST_STORAGE_KEYS } from '../../shared/storageKeys.js'
 import {
@@ -10,6 +9,7 @@ import {
   normalizeAiModelCapabilities,
   normalizeAiApiUrl,
   toAiModelReasoningInfo,
+  type AiApiFormat,
   type AiModelChoice,
   type AiProvider,
   type AiProviderInput,
@@ -38,6 +38,32 @@ function deriveProviderName(apiUrl: string, fallback: string): string {
   } catch {
     return fallback
   }
+}
+
+/**
+ * 从 models 列表接口响应文本中提取模型 ID。
+ * OpenAI 与 Anthropic 的模型列表均返回 { data: [{ id }] } 结构，
+ * 解析失败或结构不符时返回空数组。
+ * @param rawText 接口响应原文
+ * @returns 去重前的模型 ID 列表
+ */
+function extractRemoteModelIds(rawText: string): string[] {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(rawText)
+  } catch {
+    return []
+  }
+
+  const data = (parsed as { data?: unknown } | null)?.data
+  if (!Array.isArray(data)) return []
+
+  const ids: string[] = []
+  for (const item of data) {
+    const id = (item as { id?: unknown } | null)?.id
+    if (typeof id === 'string' && id.trim()) ids.push(id.trim())
+  }
+  return ids
 }
 
 /**
@@ -264,35 +290,80 @@ class AiProviderService {
   }
 
   /**
-   * 通过 OpenAI 兼容的 models 接口拉取供应商模型。
+   * 通过 OpenAI / Anthropic 兼容的 models 接口拉取供应商模型。
    * @param apiUrl 供应商接口基础地址
    * @param apiKey 供应商 API 密钥
+   * @param apiFormat 供应商接口格式；Anthropic Messages 格式会额外尝试 /v1/models 路径
    * @returns 去重并排序后的远端模型列表
    * @throws 供应商拒绝请求、超时或返回异常时抛出错误
    */
-  public async fetchRemoteModels(apiUrl: string, apiKey: string): Promise<AiRemoteModel[]> {
+  public async fetchRemoteModels(
+    apiUrl: string,
+    apiKey: string,
+    apiFormat?: AiApiFormat
+  ): Promise<AiRemoteModel[]> {
     const normalizedUrl = normalizeAiApiUrl(apiUrl)
-    if (!normalizedUrl || !apiKey.trim()) {
+    const key = apiKey.trim()
+    if (!normalizedUrl || !key) {
       throw new Error('API 地址和密钥不能为空')
     }
 
-    const client = new OpenAI({
-      apiKey: apiKey.trim(),
-      baseURL: normalizedUrl,
-      timeout: 15_000,
-      maxRetries: 0
-    })
-    const page = await client.models.list()
-    const uniqueIds = new Set<string>()
+    // OpenAI 兼容网关通常在基础地址提供 GET /models；Anthropic Messages 网关
+    // 的模型列表路径没有统一约定，同时尝试 /models 与 /v1/models，避免路径
+    // 不匹配时直接 404。
+    const isAnthropic = normalizeAiApiFormat(apiFormat) === 'anthropic-messages'
+    const candidates = isAnthropic
+      ? [`${normalizedUrl}/models`, `${normalizedUrl}/v1/models`]
+      : [`${normalizedUrl}/models`]
 
-    // OpenAI 兼容接口通常一次返回完整模型列表，限制数量避免异常响应占用过多内存。
-    for (const model of page.data.slice(0, 2_000)) {
-      if (typeof model.id === 'string' && model.id.trim()) uniqueIds.add(model.id.trim())
+    let lastStatus = 0
+    for (const candidate of candidates) {
+      let response: Response
+      try {
+        response = await fetch(candidate, {
+          headers: {
+            Authorization: `Bearer ${key}`,
+            Accept: 'application/json'
+          },
+          signal: AbortSignal.timeout(15_000)
+        })
+      } catch (error: unknown) {
+        // 网络层失败直接抛出，避免与接口路径问题混淆。
+        const reason = error instanceof Error ? error.message : String(error)
+        throw new Error(`无法连接供应商接口：${reason}`)
+      }
+
+      lastStatus = response.status
+
+      if (response.status === 401 || response.status === 403) {
+        throw new Error(`鉴权失败（HTTP ${response.status}）：请检查 API 密钥是否正确`)
+      }
+
+      if (!response.ok) {
+        // 404 / 405 / 501 视为路径不匹配，继续尝试下一个候选地址。
+        if (response.status === 404 || response.status === 405 || response.status === 501) {
+          continue
+        }
+        throw new Error(`获取模型列表失败（HTTP ${response.status}）`)
+      }
+
+      const rawText = await response.text()
+      const uniqueIds = new Set<string>()
+      for (const model of extractRemoteModelIds(rawText).slice(0, 2_000)) {
+        if (model) uniqueIds.add(model)
+      }
+
+      if (uniqueIds.size > 0) {
+        return Array.from(uniqueIds)
+          .sort((left, right) => left.localeCompare(right))
+          .map((id) => ({ id }))
+      }
     }
 
-    return Array.from(uniqueIds)
-      .sort((left, right) => left.localeCompare(right))
-      .map((id) => ({ id }))
+    throw new Error(
+      `模型列表接口不可用（HTTP ${lastStatus || '未知'}）：请确认 API 地址支持模型列表，` +
+        '或改用“手动输入模型 ID”添加模型'
+    )
   }
 
   /**

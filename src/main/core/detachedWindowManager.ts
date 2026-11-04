@@ -405,6 +405,10 @@ class DetachedWindowManager {
       // 显示窗口
       win.show()
 
+      // 分离窗口默认最大化显示：插件每次重新打开都应占满工作区，
+      // 避免停留在上次保存的半屏尺寸。
+      win.maximize()
+
       // 焦点跟踪：实时记录焦点在标题栏还是插件视图
       win.webContents.on('focus', () => {
         windowInfo.lastFocusTarget = 'titlebar'

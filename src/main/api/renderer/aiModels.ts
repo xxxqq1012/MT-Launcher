@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import aiProviderService from '../../core/aiProviderService.js'
 import officialAIService from '../../core/officialAIService.js'
 import type {
+  AiApiFormat,
   AiProviderInput,
   AiProviderMutationResult,
   AiProviderStore,
@@ -40,8 +41,10 @@ class AiModelsAPI {
     ipcMain.handle('ai-providers:set-enabled', (_event, providerId: string, enabled: boolean) =>
       this.setProviderEnabled(providerId, enabled)
     )
-    ipcMain.handle('ai-providers:fetch-models', (_event, apiUrl: string, apiKey: string) =>
-      this.fetchModels(apiUrl, apiKey)
+    ipcMain.handle(
+      'ai-providers:fetch-models',
+      (_event, apiUrl: string, apiKey: string, apiFormat?: AiApiFormat) =>
+        this.fetchModels(apiUrl, apiKey, apiFormat)
     )
   }
 
@@ -99,14 +102,19 @@ class AiModelsAPI {
   }
 
   /**
-   * 拉取 OpenAI 兼容供应商公开的模型列表。
+   * 拉取供应商公开的模型列表。
    * @param apiUrl 供应商接口基础地址
    * @param apiKey 供应商 API 密钥
+   * @param apiFormat 供应商接口格式；Anthropic Messages 格式会额外尝试 /v1/models 路径
    * @returns 远端模型摘要列表
    * @throws 供应商拒绝请求、超时或返回异常时抛出错误
    */
-  public async fetchModels(apiUrl: string, apiKey: string): Promise<AiRemoteModel[]> {
-    return aiProviderService.fetchRemoteModels(apiUrl, apiKey)
+  public async fetchModels(
+    apiUrl: string,
+    apiKey: string,
+    apiFormat?: AiApiFormat
+  ): Promise<AiRemoteModel[]> {
+    return aiProviderService.fetchRemoteModels(apiUrl, apiKey, apiFormat)
   }
 }
 

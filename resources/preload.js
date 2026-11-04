@@ -1648,13 +1648,19 @@ window.ztools = {
       setEnabled: async (providerId, enabled) =>
         await electron.ipcRenderer.invoke('internal:ai-providers-set-enabled', providerId, enabled),
       /**
-       * 拉取 OpenAI 兼容供应商的模型列表。
+       * 拉取供应商的模型列表。
        * @param {string} apiUrl 供应商接口基础地址
        * @param {string} apiKey 供应商 API 密钥
+       * @param {string} [apiFormat] 供应商接口格式；Anthropic Messages 格式会额外尝试 /v1/models 路径
        * @returns 远端模型查询结果
        */
-      fetchModels: async (apiUrl, apiKey) =>
-        await electron.ipcRenderer.invoke('internal:ai-providers-fetch-models', apiUrl, apiKey)
+      fetchModels: async (apiUrl, apiKey, apiFormat) =>
+        await electron.ipcRenderer.invoke(
+          'internal:ai-providers-fetch-models',
+          apiUrl,
+          apiKey,
+          apiFormat
+        )
     },
 
     // ==================== Provider（翻译 / OCR 等）管理 API ====================

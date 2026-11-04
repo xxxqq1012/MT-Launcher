@@ -3,6 +3,7 @@
 
 import type { SearchWallpaperConfig } from '@shared/searchWallpaper'
 import type {
+  AiApiFormat,
   AiProviderInput,
   AiProviderMutationResult,
   AiProviderStore,
@@ -883,7 +884,8 @@ declare global {
           setEnabled: (providerId: string, enabled: boolean) => Promise<AiProviderMutationResult>
           fetchModels: (
             apiUrl: string,
-            apiKey: string
+            apiKey: string,
+            apiFormat?: AiApiFormat
           ) => Promise<{ success: boolean; data?: AiRemoteModel[]; error?: string }>
         }
 

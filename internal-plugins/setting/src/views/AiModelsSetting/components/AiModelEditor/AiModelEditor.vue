@@ -129,7 +129,8 @@ function resetEditor(provider: AiProvider | null): void {
 watch(() => props.editingProvider, resetEditor, { immediate: true })
 
 /**
- * 从当前供应商的 OpenAI 兼容接口拉取模型并打开选择弹窗。
+ * 从当前供应商的接口拉取模型并打开选择弹窗。
+ * 按所选 API 格式分流：Anthropic Messages 会额外尝试 /v1/models 路径。
  * @returns 操作完成后结束的 Promise
  */
 async function fetchModels(): Promise<void> {
@@ -143,7 +144,8 @@ async function fetchModels(): Promise<void> {
   try {
     const result = await window.ztools.internal.aiProviders.fetchModels(
       formData.value.apiUrl,
-      formData.value.apiKey
+      formData.value.apiKey,
+      formData.value.apiFormat
     )
     if (!result.success || !result.data) {
       fetchError.value = result.error || '获取模型列表失败'

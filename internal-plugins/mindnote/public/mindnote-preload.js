@@ -695,6 +695,9 @@ window.mindnote = {
 
   // 批量写入：一次 IPC 内写完正文与列表，避免逐篇往返导致的同步阻塞
   saveNotesBatch: function (notes) {
+    // 3.2.30：导入文件夹流程先 saveFolderList（150ms 合并定时器未到）再到这里，
+    // 先把待写队列落库，shim 落盘才能按 folderId 解析出子目录（否则全部落盘到工作区根）。
+    flushPending()
     var t0 = Date.now(),
       i = 0,
       n = (notes || []).length

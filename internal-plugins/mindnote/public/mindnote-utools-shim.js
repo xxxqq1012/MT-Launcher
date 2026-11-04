@@ -138,45 +138,167 @@ function installUtoolsShim() {
         (path.basename(dataDir).toLowerCase() === '.mindnote' ? dataDir : path.dirname(dataDir))
     }
     var FILE_PREFIX = 'md_'
+    var NOTE_PREFIX = 'kv/mindnote_note_'
+
+    // ============ 普通笔记落盘（导入/新建 → 工作区 .md，目录一致） ============
+    // 导入文件/文件夹产生的笔记 id 是随机 uuid（非 md_ 前缀），历史实现只写 db.json 不落盘，
+    // 实机反馈「导入文件和文件夹只会记录到 db.json，磁盘找不到文件」。
+    // 这里把普通笔记按 title（+ folder 树目录）映射到 wsRoot 下的 .md 文件：
+    //   put：内容非空时首次出现或已有落盘文件 → 写/更新文件（内容未变化不重写，同 3.2.28）；
+    //        title/folder 变更 → 文件改名迁移；同名冲突 → title 加 " (n)" 去重并同步 note_list。
+    //   remove：删除对应 .md（git 可恢复）。
+    // md 桥扫描磁盘 *.md 时跳过已被普通笔记映射的文件，避免同一篇显示两次。
+    function sanitizeFileName(name) {
+      var s = String(name == null ? '' : name)
+        .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+        .replace(/[. ]+$/g, '')
+        .trim()
+      return s || 'untitled'
+    }
+    function folderRelPath(folderId, docs) {
+      if (folderId == null || folderId === '') return ''
+      var folders = null
+      try {
+        var f = docs && docs['kv/mindnote_folder_list']
+        folders = f && Array.isArray(f.val) ? f.val : null
+      } catch (e) {}
+      if (!folders) return ''
+      var byId = {}
+      folders.forEach(function (x) {
+        if (x && x.id != null) byId[x.id] = x
+      })
+      var segs = []
+      var cur = byId[folderId]
+      var guard = 0
+      while (cur && guard++ < 64) {
+        segs.unshift(sanitizeFileName(cur.name))
+        cur = cur.parentId != null ? byId[cur.parentId] : null
+      }
+      return segs.join('/')
+    }
+    function plainNoteKeys(docs) {
+      var out = []
+      Object.keys(docs || {}).forEach(function (k) {
+        if (
+          k.indexOf(NOTE_PREFIX) === 0 &&
+          k !== NOTE_PREFIX + 'list' &&
+          k.indexOf(NOTE_PREFIX + FILE_PREFIX) !== 0
+        )
+          out.push(k)
+      })
+      return out
+    }
+    function isPlainNote(k) {
+      return (
+        k.indexOf(NOTE_PREFIX) === 0 &&
+        k !== NOTE_PREFIX + 'list' &&
+        k.indexOf(NOTE_PREFIX + FILE_PREFIX) !== 0
+      )
+    }
+    function noteTargetFile(v, docs) {
+      if (!v) return ''
+      var rel = folderRelPath(v.folderId, docs)
+      var fname = sanitizeFileName(v.title) + '.md'
+      return wsRoot ? path.join(wsRoot, rel, fname) : ''
+    }
 
     function mdFileList() {
       var out = []
       if (!wsRoot || !fs.existsSync(wsRoot)) return out
+      var docs = null
+      var mapped = null
       try {
-        fs.readdirSync(wsRoot).forEach(function (name) {
-          if (!/\.md$/i.test(name)) return
-          var full = path.join(wsRoot, name)
+        docs = readAll()
+        mapped = {}
+        plainNoteKeys(docs).forEach(function (k) {
+          var d = docs[k]
+          var v = d && d.val ? d.val : d
+          if (!v || v.content == null || String(v.content) === '') return
+          var t = noteTargetFile(v, docs)
+          if (t) mapped[t] = 1
+        })
+      } catch (e) {}
+      function walk(dir, relDir, depth) {
+        if (depth > 16) return
+        var names = null
+        try {
+          names = fs.readdirSync(dir)
+        } catch (e) {
+          return
+        }
+        names.forEach(function (name) {
+          var full = path.join(dir, name)
           var st = null
           try {
             st = fs.statSync(full)
           } catch (e) {
             return
           }
-          if (!st.isFile()) return
-          out.push({ base: name.replace(/\.md$/i, ''), full: full, mtime: st.mtimeMs })
+          if (st.isDirectory()) {
+            walk(full, relDir ? relDir + '/' + name : name, depth + 1)
+            return
+          }
+          if (!st.isFile() || !/\.md$/i.test(name)) return
+          // 跳过已被普通笔记映射的磁盘文件（防重复显示）
+          if (mapped && mapped[full]) return
+          out.push({
+            base: name.replace(/\.md$/i, ''),
+            relDir: relDir || '',
+            full: full,
+            mtime: st.mtimeMs
+          })
         })
+      }
+      try {
+        walk(wsRoot, '', 0)
       } catch (e) {}
       return out
     }
-    function mdId(base) {
-      return FILE_PREFIX + String(base)
+    // id 编码：根目录文件保持旧 id（md_<base>）兼容；子目录文件编码目录段（__ 分隔、段内 _u/_s 转义），
+    // 避免不同目录同名文件撞 id、也避免目录/文件名含 __ 时解析歧义。
+    function encSeg(s) {
+      return String(s).replace(/_/g, '_u').replace(/\//g, '_s')
+    }
+    function decSeg(s) {
+      return String(s).replace(/_s/g, '/').replace(/_u/g, '_')
+    }
+    function mdId(f) {
+      if (!f.relDir) return FILE_PREFIX + String(f.base)
+      // 子目录文件：目录段与 base 段都转义（'_'→'_u'、'/'→'_s'），以 '__' 连接，
+      // 段内不再出现字面 '__'，parse 无歧义（根文件保持旧 id 兼容）
+      return FILE_PREFIX + f.relDir.split('/').map(encSeg).concat(encSeg(f.base)).join('__')
+    }
+    // id 去掉前缀后的部分 → {relDir, base}；仅用于回退（磁盘精确匹配优先）
+    function parseMdId(rest) {
+      var s = String(rest == null ? '' : rest)
+      if (s.indexOf('__') < 0) return { relDir: '', base: s }
+      var parts = s.split('__')
+      var base = parts.pop()
+      return { relDir: parts.map(decSeg).join('/'), base: decSeg(base) }
+    }
+    function mdFileById(relDir, base) {
+      var files = mdFileList()
+      for (var i = 0; i < files.length; i++) {
+        if ((files[i].relDir || '') === (relDir || '') && files[i].base === base) return files[i]
+      }
+      return null
     }
     // 3.2.28：md 桥笔记的排序/时间元数据不再每次从文件现算（旧实现 sortOrder 恒 0 →
     // bundle Bu 排序中 0 永远小于本地笔记（100+）导致磁盘 md 恒置顶；且 md 之间按
     // updatedAt(=文件 mtime) 降序，git pull/外部修改/空转重写都会改 mtime → 目录顺序跳动）。
     // 改为：sortOrder/updatedAt/createdAt 优先沿用 db 持久化值；首次出现的磁盘 md 按
     // 文件名字典序排在当前列表末尾之后（max+100 递增），保证多个新 md 之间也互不相同且稳定。
-    function mdPersistedVal(base) {
+    function mdPersistedVal(f) {
       try {
         const all = readAll()
-        const rec = all['kv/mindnote_note_' + mdId(base)]
+        const rec = all['kv/mindnote_note_' + mdId(f)]
         return rec && rec.val ? rec.val : null
       } catch (e) {
         return null
       }
     }
-    function mdStableSortOrder(base) {
-      const p = mdPersistedVal(base)
+    function mdStableSortOrder(f) {
+      const p = mdPersistedVal(f)
       if (p && p.sortOrder != null) return p.sortOrder
       let mx = 0
       try {
@@ -194,7 +316,7 @@ function installUtoolsShim() {
         })
       let idx = 0
       for (let i = 0; i < files.length; i++) {
-        if (files[i].base === base) {
+        if (mdId(files[i]) === mdId(f)) {
           idx = i
           break
         }
@@ -206,32 +328,35 @@ function installUtoolsShim() {
       try {
         content = fs.readFileSync(f.full, 'utf8')
       } catch (e) {}
-      const persisted = mdPersistedVal(f.base)
-      const sortOrder = mdStableSortOrder(f.base)
+      const persisted = mdPersistedVal(f)
+      const sortOrder = mdStableSortOrder(f)
+      const folderId = f.relDir ? mdFolderId(f.relDir) : undefined
       return {
-        _id: 'kv/mindnote_note_' + mdId(f.base),
+        _id: 'kv/mindnote_note_' + mdId(f),
         val: {
-          id: mdId(f.base),
+          id: mdId(f),
           title: f.base,
           content: content,
           tags: persisted && Array.isArray(persisted.tags) ? persisted.tags : [],
           sortOrder: sortOrder,
+          folderId: folderId,
           createdAt: persisted && persisted.createdAt ? persisted.createdAt : f.mtime,
           updatedAt: persisted && persisted.updatedAt ? persisted.updatedAt : f.mtime,
           _fromFile: true
         },
         size: content.length,
-        _id: 'kv/mindnote_note_' + mdId(f.base)
+        _id: 'kv/mindnote_note_' + mdId(f)
       }
     }
     function mdListItems() {
       return mdFileList().map(function (f) {
-        const p = mdPersistedVal(f.base)
+        const p = mdPersistedVal(f)
         return {
-          id: mdId(f.base),
+          id: mdId(f),
           title: f.base,
           updatedAt: p && p.updatedAt ? p.updatedAt : f.mtime,
-          sortOrder: mdStableSortOrder(f.base)
+          sortOrder: mdStableSortOrder(f),
+          folderId: f.relDir ? mdFolderId(f.relDir) : undefined
         }
       })
     }
@@ -246,8 +371,83 @@ function installUtoolsShim() {
       })
       return arr
     }
-    function mdTargetFile(base) {
-      return wsRoot ? path.join(wsRoot, base + '.md') : ''
+    // 磁盘子目录树 → 虚拟 folder（git pull / 手动放入的子目录 *.md 也能在侧栏按目录展示）。
+    // 仅合并展示：bundle 保存 folder_list 时可能连同虚拟项写入 db，合并按 id 去重（已有 db 记录不再生成）；
+    // 用户删除虚拟项后磁盘目录仍在，下次合并会重新出现（只读镜像语义，删除目录属后续范围）。
+    // 已被 db folder 记录映射的目录（导入文件夹落盘产生的真实目录）不生成虚拟 folder，避免重复。
+    function mdFolderId(relDir) {
+      return 'md_folder_' + relDir.split('/').map(encSeg).join('__')
+    }
+    function mdFolderList() {
+      var out = []
+      var files = mdFileList()
+      if (!files.length) return out
+      var docs = null
+      try {
+        docs = readAll()
+      } catch (e) {}
+      var dbFolders = null
+      try {
+        var f = docs && docs['kv/mindnote_folder_list']
+        dbFolders = f && Array.isArray(f.val) ? f.val : []
+      } catch (e) {}
+      var dbPaths = {}
+      var dbById = {}
+      ;(dbFolders || []).forEach(function (x) {
+        if (x && x.id != null) {
+          dbById[x.id] = x
+          var p = folderRelPath(x.id, docs)
+          if (p) dbPaths[p] = 1
+        }
+      })
+      var dirs = {}
+      files.forEach(function (f) {
+        if (!f.relDir) return
+        var parts = f.relDir.split('/')
+        var acc = ''
+        parts.forEach(function (seg, idx) {
+          acc = idx === 0 ? seg : acc + '/' + seg
+          if (!dbPaths[acc]) dirs[acc] = 1
+        })
+      })
+      Object.keys(dirs).forEach(function (p) {
+        var parts = p.split('/')
+        var id = mdFolderId(p)
+        var pp = parts.slice(0, -1).join('/')
+        var parent = undefined
+        if (parts.length > 1) {
+          if (pp && dbPaths[pp]) {
+            // 父目录是 db folder：虚拟 folder 挂到它下面
+            Object.keys(dbById).forEach(function (k) {
+              if (folderRelPath(k, docs) === pp) parent = k
+            })
+          } else {
+            parent = mdFolderId(pp)
+          }
+        }
+        out.push({
+          id: id,
+          name: parts[parts.length - 1],
+          parentId: parent,
+          order: Number.MAX_SAFE_INTEGER,
+          _fromDisk: true
+        })
+      })
+      return out
+    }
+    function mergeMdFoldersIntoList(val) {
+      var arr = Array.isArray(val) ? val : []
+      var byId = {}
+      arr.forEach(function (x) {
+        if (x && x.id != null) byId[x.id] = x
+      })
+      mdFolderList().forEach(function (m) {
+        if (!byId[m.id]) arr.push(m)
+      })
+      return arr
+    }
+    function mdTargetFile(relDir, base) {
+      return wsRoot ? path.join(wsRoot, relDir || '', base + '.md') : ''
     }
 
     const db = {
@@ -275,12 +475,10 @@ function installUtoolsShim() {
         const key = String(id == null ? '' : id)
         // 文件笔记实时读（防 bundle 缓存旧内容）
         if (key.indexOf('kv/mindnote_note_' + FILE_PREFIX) === 0) {
-          const base = key.slice(('kv/mindnote_note_' + FILE_PREFIX).length)
-          const files = mdFileList()
-          for (let i = 0; i < files.length; i++) {
-            if (files[i].base === base) return mdDoc(files[i])
-          }
-          return null
+          const rest = key.slice(('kv/mindnote_note_' + FILE_PREFIX).length)
+          const parsed = parseMdId(rest)
+          const f = mdFileById(parsed.relDir, parsed.base)
+          return f ? mdDoc(f) : null
         }
         const docs = readAll()
         // 笔记列表合并 .md 项（3.2.25：db 里还没有列表 key 时也返回纯 md 合并结果，
@@ -291,6 +489,18 @@ function installUtoolsShim() {
           const merged = {
             _id: key,
             val: mergeMdIntoList(Array.isArray(base) ? base : []),
+            size: 0
+          }
+          merged.size = JSON.stringify(merged.val).length
+          return merged
+        }
+        // 文件夹列表合并磁盘子目录生成的虚拟 folder（目录一致：磁盘目录在侧栏可见）
+        if (key === 'kv/mindnote_folder_list') {
+          const d = docs[key]
+          const base = d && d.val ? d.val : []
+          const merged = {
+            _id: key,
+            val: mergeMdFoldersIntoList(Array.isArray(base) ? base : []),
             size: 0
           }
           merged.size = JSON.stringify(merged.val).length
@@ -307,20 +517,27 @@ function installUtoolsShim() {
         if (key.indexOf('kv/mindnote_note_' + FILE_PREFIX) === 0) {
           try {
             const val = doc.val || doc
-            const oldBase = key.slice(('kv/mindnote_note_' + FILE_PREFIX).length)
+            const rest = key.slice(('kv/mindnote_note_' + FILE_PREFIX).length)
+            const parsed = parseMdId(rest)
+            const f = mdFileById(parsed.relDir, parsed.base) || {
+              relDir: parsed.relDir,
+              base: parsed.base
+            }
+            const oldBase = f.base
+            const relDir = f.relDir || ''
             const content = val.content == null ? '' : String(val.content)
             const newTitle = val.title == null ? oldBase : String(val.title)
-            const oldFile = mdTargetFile(oldBase)
+            const oldFile = mdTargetFile(relDir, oldBase)
             if (newTitle !== oldBase) {
-              const newFile = wsRoot ? path.join(wsRoot, newTitle + '.md') : ''
+              const newFile = wsRoot ? path.join(wsRoot, relDir, newTitle + '.md') : ''
               if (oldFile && newFile && fs.existsSync(oldFile)) {
                 try {
                   fs.renameSync(oldFile, newFile)
                 } catch (e) {}
               }
               // 迁移 db 记录到新 id（bundle 后续用新 title 重建映射）
-              const oldKey = 'kv/mindnote_note_' + FILE_PREFIX + oldBase
-              const newKey = 'kv/mindnote_note_' + FILE_PREFIX + newTitle
+              const oldKey = 'kv/mindnote_note_' + mdId(f)
+              const newKey = 'kv/mindnote_note_' + mdId({ relDir: relDir, base: newTitle })
               if (oldKey !== newKey) {
                 delete docs[oldKey]
                 const nd = {}
@@ -328,7 +545,7 @@ function installUtoolsShim() {
                 nd._id = newKey
                 if (nd.val)
                   nd.val = Object.assign({}, doc.val, {
-                    id: FILE_PREFIX + newTitle,
+                    id: mdId({ relDir: relDir, base: newTitle }),
                     title: newTitle
                   })
                 doc = nd
@@ -336,8 +553,11 @@ function installUtoolsShim() {
                 const lst = docs['kv/mindnote_note_list']
                 if (lst && Array.isArray(lst.val)) {
                   lst.val = lst.val.map(function (n) {
-                    if (n && n.id === FILE_PREFIX + oldBase)
-                      return Object.assign({}, n, { id: FILE_PREFIX + newTitle, title: newTitle })
+                    if (n && n.id === mdId(f))
+                      return Object.assign({}, n, {
+                        id: mdId({ relDir: relDir, base: newTitle }),
+                        title: newTitle
+                      })
                     return n
                   })
                 }
@@ -377,6 +597,90 @@ function installUtoolsShim() {
           } catch (e) {
             console.error('[MindNote] md 写回失败', e && e.message)
           }
+        } else if (isPlainNote(key)) {
+          // 普通笔记（导入文件/导入文件夹/新建带内容）：落盘为工作区 .md（目录一致）。
+          // 导入产生的笔记 id 是随机 uuid（非 md_ 前缀），历史实现只进 db.json → 磁盘找不到文件。
+          // 规则：内容非空时首次出现或已有落盘文件 → 写/更新文件（内容未变化不重写，同 3.2.28）；
+          //       title/folder 变更 → 旧文件改名迁移；同名冲突 → title 加 " (n)" 去重并同步 note_list。
+          try {
+            const val = doc.val || doc
+            const content = val.content == null ? '' : String(val.content)
+            if (content !== '') {
+              const oldDoc = docs[key]
+              const oldV = oldDoc && oldDoc.val ? oldDoc.val : oldDoc
+              const oldTarget = oldV ? noteTargetFile(oldV, docs) : ''
+              let relDir = folderRelPath(val.folderId, docs)
+              let target = wsRoot
+                ? path.join(wsRoot, relDir, sanitizeFileName(val.title) + '.md')
+                : ''
+              if (target && target !== oldTarget && fs.existsSync(target)) {
+                // 目标被其他记录/外部文件占用 → 去重（title 加 " (n)"）并同步 note_list
+                const baseName = sanitizeFileName(val.title)
+                let n = 2
+                const maxTry = 200
+                while (
+                  n < maxTry &&
+                  fs.existsSync(path.join(wsRoot, relDir, baseName + ' (' + n + ').md'))
+                )
+                  n++
+                if (n < maxTry) {
+                  const newName = baseName + ' (' + n + ').md'
+                  target = path.join(wsRoot, relDir, newName)
+                  const newTitle = newName.replace(/\.md$/i, '')
+                  if (doc.val) doc.val.title = newTitle
+                  else doc.title = newTitle
+                  const nid = key.slice(NOTE_PREFIX.length)
+                  const lst = docs['kv/mindnote_note_list']
+                  if (lst && Array.isArray(lst.val)) {
+                    lst.val = lst.val.map(function (it) {
+                      if (it && it.id === nid) return Object.assign({}, it, { title: newTitle })
+                      return it
+                    })
+                  }
+                }
+              }
+              if (oldTarget && target && oldTarget !== target && fs.existsSync(oldTarget)) {
+                // title/folder 变更：旧文件改名迁移
+                try {
+                  fs.mkdirSync(path.dirname(target), { recursive: true })
+                } catch (e) {}
+                try {
+                  fs.renameSync(oldTarget, target)
+                } catch (e) {
+                  try {
+                    fs.writeFileSync(target, content, 'utf8')
+                  } catch (e2) {}
+                  try {
+                    fs.unlinkSync(oldTarget)
+                  } catch (e2) {}
+                }
+              } else if (target) {
+                try {
+                  fs.mkdirSync(path.dirname(target), { recursive: true })
+                } catch (e) {}
+              }
+              if (target) {
+                // 内容未变化不重写（3.2.28 原则：避免 mtime 空转 → 目录顺序跳动 + git 假变更）
+                let cur = ''
+                try {
+                  if (fs.existsSync(target)) cur = fs.readFileSync(target, 'utf8')
+                } catch (e) {}
+                if (cur !== content) {
+                  try {
+                    fs.writeFileSync(target, content, 'utf8')
+                  } catch (e) {
+                    console.error('[MindNote] 笔记落盘失败', e && e.message)
+                  }
+                }
+                try {
+                  if (window.__znotesGit && window.__znotesGit.noteEditActivity)
+                    window.__znotesGit.noteEditActivity()
+                } catch (e) {}
+              }
+            }
+          } catch (e) {
+            console.error('[MindNote] 笔记落盘异常', e && e.message)
+          }
         }
         docs[String(doc._id)] = doc
         writeAll(docs)
@@ -392,12 +696,41 @@ function installUtoolsShim() {
         // 文件笔记：同步删除对应 .md（git 可恢复）
         if (isMd) {
           try {
-            const base = key.slice(('kv/mindnote_note_' + FILE_PREFIX).length)
-            const f = mdTargetFile(base)
+            const rest = key.slice(('kv/mindnote_note_' + FILE_PREFIX).length)
+            const parsed = parseMdId(rest)
+            const f = mdTargetFile(parsed.relDir, parsed.base)
             if (f && fs.existsSync(f)) {
               try {
                 fs.unlinkSync(f)
               } catch (e) {}
+            }
+          } catch (e) {}
+        } else if (isPlainNote(key)) {
+          // 普通笔记（导入/新建落盘）：删除对应 .md 并清理空目录（git 可恢复）
+          try {
+            const oldDoc = docs[key]
+            const oldV = oldDoc && oldDoc.val ? oldDoc.val : oldDoc
+            if (oldV) {
+              const t = noteTargetFile(oldV, docs)
+              if (t && fs.existsSync(t)) {
+                try {
+                  fs.unlinkSync(t)
+                } catch (e) {}
+              }
+              // 自底向上清理空目录（仅删到 wsRoot 为止）
+              if (t) {
+                var dir = path.dirname(t)
+                var guard = 0
+                while (dir && dir !== wsRoot && guard++ < 32 && fs.existsSync(dir)) {
+                  try {
+                    if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir)
+                    else break
+                  } catch (e) {
+                    break
+                  }
+                  dir = path.dirname(dir)
+                }
+              }
             }
           } catch (e) {}
         }
@@ -415,9 +748,10 @@ function installUtoolsShim() {
             if (k.indexOf('kv/mindnote_note_' + FILE_PREFIX) === 0) {
               try {
                 const val = d.val || d
-                const base = k.slice(('kv/mindnote_note_' + FILE_PREFIX).length)
+                const rest = k.slice(('kv/mindnote_note_' + FILE_PREFIX).length)
+                const parsed = parseMdId(rest)
                 const content = val.content == null ? '' : String(val.content)
-                const f = mdTargetFile(base)
+                const f = mdTargetFile(parsed.relDir, parsed.base)
                 if (f) {
                   // 3.2.28：同 put 分支——内容未变化不重写 .md，避免 mtime 空转造成顺序跳动
                   let cur = ''

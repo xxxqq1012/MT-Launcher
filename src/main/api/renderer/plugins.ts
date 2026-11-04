@@ -1,10 +1,14 @@
 import type { PluginManager } from '../../managers/pluginManager'
 import { ipcMain, type WebContents } from 'electron'
+import fs from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
 import { removePluginArtifact } from '../../utils/pluginStorage.js'
 import { normalizeIconPath } from '../../common/iconUtils'
 import { isBundledInternalPlugin } from '../../core/internalPlugins'
+import { getPluginsPath } from '../../core/appData/appDataPaths'
+import { healPluginPaths, relocatePluginPaths } from '../../core/appData/pluginPathHeal'
+import { readUToolsPluginJson } from '../../core/utoolsCompat/utoolsImporter'
 import lmdbInstance from '../../core/lmdb/lmdbInstance'
 import providerManager from '../../core/provider/providerManager'
 import windowManager from '../../managers/windowManager'
@@ -298,6 +302,75 @@ export class PluginsAPI {
   }
 
   /**
+   * 自愈插件注册表中失效的物理路径。
+   *
+   * 便携版把数据根迁移到外部目录后，插件实体已在 <新根>/plugins 下，但注册表
+   * path / logo 仍是迁移前的旧位置；覆盖式更新程序目录若使旧位置（常为旧程序
+   * 目录内 data/plugins）消失，插件图标会全部无法显示。此方法按实体文件名在
+   * 当前数据根 plugins 下重定位并重算 logo，命中即持久化并通知刷新。
+   * @returns 修复的插件数量
+   */
+  public selfHealPluginPaths(): number {
+    const plugins = this.readInstalledPlugins()
+    if (!Array.isArray(plugins) || plugins.length === 0) return 0
+    const healed = healPluginPaths(plugins, getPluginsPath(), {
+      exists: (filePath) => fs.existsSync(filePath),
+      rebuildLogo: (pluginPath, currentLogo) => this.rebuildPluginLogo(pluginPath, currentLogo),
+      isBundled: (name) => isBundledInternalPlugin(String(name || ''))
+    })
+    if (healed > 0) {
+      this.writeInstalledPlugins(plugins)
+      this.notifyPluginsChanged()
+      console.log(`[Plugins] 自愈插件注册路径: ${healed} 项`)
+    }
+    return healed
+  }
+
+  /**
+   * 数据迁移完成后，把插件注册表中仍指向旧数据根的 path / logo 重定位到新数据根。
+   * 迁移只复制目录并重写数据根引导文件，不触碰注册表；补齐这一步可避免后续
+   * 覆盖式更新程序目录使旧位置消失后插件图标 / 实体加载失效。
+   * @param oldRoot 迁移前数据根
+   * @param newRoot 迁移目标数据根
+   * @returns 重定位的插件数量
+   */
+  public relocatePluginPathsAfterDataMigration(oldRoot: string, newRoot: string): number {
+    const plugins = this.readInstalledPlugins()
+    if (!Array.isArray(plugins) || plugins.length === 0) return 0
+    const count = relocatePluginPaths(plugins, oldRoot, newRoot)
+    if (count > 0) {
+      this.writeInstalledPlugins(plugins)
+      this.notifyPluginsChanged()
+      console.log(`[Plugins] 插件注册路径已迁移到新数据根: ${count} 项`)
+    }
+    return count
+  }
+
+  /**
+   * 按新插件实体路径重建 logo URL：目录插件读 plugin.json，.asar 插件读包内
+   * plugin.json；取不到相对 logo 时保留注册表原值。
+   * @param pluginPath 插件实体路径（目录或 .asar 文件）
+   * @param currentLogo 注册表内现有 logo 值
+   * @returns 重建后的 logo URL
+   */
+  private rebuildPluginLogo(pluginPath: string, currentLogo: unknown): string {
+    let relativeLogo: unknown
+    try {
+      if (pluginPath.toLowerCase().endsWith('.asar')) {
+        relativeLogo = readUToolsPluginJson(pluginPath)?.logo
+      } else {
+        relativeLogo = JSON.parse(
+          fs.readFileSync(path.join(pluginPath, 'plugin.json'), 'utf8')
+        )?.logo
+      }
+    } catch {
+      relativeLogo = undefined
+    }
+    if (relativeLogo != null) return this.resolvePluginLogo(pluginPath, relativeLogo)
+    return typeof currentLogo === 'string' ? currentLogo : ''
+  }
+
+  /**
    * 获取插件中心展示的正式和开发插件列表。
    * @returns 已过滤内置插件的列表
    */
@@ -567,6 +640,8 @@ export class PluginsAPI {
    */
   public async getAllPlugins(): Promise<any[]> {
     try {
+      // 覆盖式更新程序目录可能使注册表旧路径失效，先按实体重定位再返回列表。
+      this.selfHealPluginPaths()
       const data = databaseAPI.dbGet('plugins')
       const plugins = data || []
 

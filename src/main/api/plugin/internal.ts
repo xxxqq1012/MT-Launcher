@@ -848,7 +848,19 @@ export class InternalPluginAPI {
       this.requireApi(event, 'internal:data-migration-perform')
       // 迁移前停止自动同步，降低 LMDB 写入期间复制不一致的风险。
       syncAPI.stopAutoSync()
-      return await performDataMigration(target)
+      const result = await performDataMigration(target)
+      // 迁移复制目录并重写引导文件，但注册表 path/logo 仍指向旧根；同步重定位，
+      // 避免随后覆盖式更新程序目录使旧位置消失后插件图标/实体加载失效。
+      if (result.success && result.currentRoot && result.target) {
+        const relocated = pluginsAPI.relocatePluginPathsAfterDataMigration(
+          result.currentRoot,
+          result.target
+        )
+        if (relocated > 0) {
+          console.log(`[DataMigration] 插件注册路径已重定位到新数据根: ${relocated} 项`)
+        }
+      }
+      return result
     })
 
     this.handleInternal('internal:data-migration-restart', async (event) => {

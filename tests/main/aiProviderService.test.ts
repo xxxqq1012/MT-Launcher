@@ -2,18 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockDbGet = vi.hoisted(() => vi.fn())
 const mockDbPut = vi.hoisted(() => vi.fn())
-const mockModelsList = vi.hoisted(() => vi.fn())
 
 vi.mock('../../src/main/api/shared/database.js', () => ({
   default: {
     dbGet: mockDbGet,
     dbPut: mockDbPut
-  }
-}))
-
-vi.mock('openai', () => ({
-  default: class MockOpenAI {
-    models = { list: mockModelsList }
   }
 }))
 
@@ -372,13 +365,93 @@ describe('aiProviderService', () => {
   })
 
   it('deduplicates and sorts models returned by an OpenAI-compatible endpoint', async () => {
-    mockModelsList.mockResolvedValue({
-      data: [{ id: 'model-z' }, { id: 'model-a' }, { id: 'model-a' }, { id: '' }]
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          data: [{ id: 'model-z' }, { id: 'model-a' }, { id: 'model-a' }, { id: '' }]
+        })
     })
+    vi.stubGlobal('fetch', mockFetch)
+    try {
+      await expect(
+        aiProviderService.fetchRemoteModels('https://example.com/v1/', 'secret')
+      ).resolves.toEqual([{ id: 'model-a' }, { id: 'model-z' }])
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://example.com/v1/models',
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer secret' })
+        })
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 
-    await expect(
-      aiProviderService.fetchRemoteModels('https://example.com/v1/', 'secret')
-    ).resolves.toEqual([{ id: 'model-a' }, { id: 'model-z' }])
+  it('falls back to /v1/models for Anthropic Messages providers when /models is missing', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 404, text: async () => '' })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ data: [{ id: 'claude-3-5' }, { id: 'claude-4' }] })
+      })
+    vi.stubGlobal('fetch', mockFetch)
+    try {
+      await expect(
+        aiProviderService.fetchRemoteModels(
+          'https://ark.example/api/coding',
+          'secret',
+          'anthropic-messages'
+        )
+      ).resolves.toEqual([{ id: 'claude-3-5' }, { id: 'claude-4' }])
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        'https://ark.example/api/coding/models',
+        expect.any(Object)
+      )
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        'https://ark.example/api/coding/v1/models',
+        expect.any(Object)
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('surfaces auth failures with the HTTP status code', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      text: async () => 'Forbidden'
+    })
+    vi.stubGlobal('fetch', mockFetch)
+    try {
+      await expect(
+        aiProviderService.fetchRemoteModels('https://example.com/v1', 'bad-key')
+      ).rejects.toThrow('鉴权失败（HTTP 403）')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('reports a clear error when no model list endpoint is available', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: false, status: 404, text: async () => '' })
+    vi.stubGlobal('fetch', mockFetch)
+    try {
+      await expect(
+        aiProviderService.fetchRemoteModels(
+          'https://example.com/v1',
+          'secret',
+          'anthropic-messages'
+        )
+      ).rejects.toThrow('模型列表接口不可用（HTTP 404）')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('persists the api format and defaults legacy values to OpenAI Chat Completions', () => {

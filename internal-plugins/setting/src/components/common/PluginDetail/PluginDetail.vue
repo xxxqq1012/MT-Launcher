@@ -27,6 +27,8 @@ const props = withDefaults(
     showDownloadCount?: boolean
     showSourceBadge?: boolean
     showMarketButton?: boolean
+    // 内置插件（随宿主发布，不可卸载/禁用）
+    isBundled?: boolean
     initialTab?: TabId
   }>(),
   {
@@ -121,6 +123,7 @@ function onSwitchTab(tabId: TabId): void {
         :show-pin-button="showPinButton"
         :show-disable-toggle="showDisableToggle"
         :show-market-button="showMarketButton"
+        :is-bundled="isBundled"
         :show-settings-dropdown="showSettingsDropdown"
         :is-auto-kill="isAutoKill"
         :is-auto-detach="isAutoDetach"

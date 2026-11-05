@@ -70,6 +70,7 @@ declare global {
             logo?: string
             features?: any[]
             isDevelopment?: boolean
+            isBundled?: boolean
           }>
         >
         getDisabledPlugins: () => Promise<string[]>
@@ -90,6 +91,7 @@ declare global {
             logo?: string
             features?: any[]
             isDevelopment?: boolean
+            isBundled?: boolean
           }>
         >
         getRunningPlugins: () => Promise<string[]>

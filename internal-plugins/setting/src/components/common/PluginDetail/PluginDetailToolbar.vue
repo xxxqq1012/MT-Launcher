@@ -9,6 +9,8 @@ defineProps<{
   showPinButton?: boolean
   showDisableToggle?: boolean
   showMarketButton?: boolean
+  // 内置插件（随宿主发布，不可卸载/禁用）
+  isBundled?: boolean
   // 设置
   showSettingsDropdown: boolean
   isAutoKill: boolean
@@ -73,7 +75,12 @@ function handleDisabledToggle(event: Event): void {
     >
       <div class="i-z-store font-size-16px" />
     </button>
-    <button class="icon-btn topbar-action-btn delete-btn" title="卸载" @click="emit('uninstall')">
+    <button
+      v-if="!isBundled"
+      class="icon-btn topbar-action-btn delete-btn"
+      title="卸载"
+      @click="emit('uninstall')"
+    >
       <div class="i-z-trash font-size-16px" />
     </button>
     <button

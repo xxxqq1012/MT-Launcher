@@ -647,6 +647,9 @@ export class PluginsAPI {
 
       // 合并动态 features
       for (const plugin of plugins) {
+        // 内置插件标记（只读展示字段，不写回注册表）：供已安装插件页识别并隐藏
+        // 卸载/禁用等不适用的操作入口。
+        plugin.isBundled = isBundledInternalPlugin(String(plugin.name || ''))
         const dynamicFeatures = pluginFeatureAPI.loadDynamicFeatures(plugin.name)
         plugin.features = [...(plugin.features || []), ...dynamicFeatures]
 

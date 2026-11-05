@@ -147,7 +147,7 @@ async function loadPlugins(): Promise<void> {
   isLoading.value = true
   try {
     const [installedPlugins, disabledPlugins] = await Promise.all([
-      window.ztools.internal.getPlugins(),
+      window.ztools.internal.getAllPlugins(),
       window.ztools.internal.getDisabledPlugins()
     ])
     disabledPluginPaths.value = disabledPlugins
@@ -176,6 +176,7 @@ function buildPluginList(installedPlugins: any[], marketPluginMap?: Map<string, 
         marketPlugin: market,
         hasUpdate:
           !plugin.isDevelopment &&
+          !plugin.isBundled &&
           !!market?.version &&
           compareVersions(plugin.version, market.version) < 0
       }
@@ -1042,7 +1043,8 @@ async function handleInstallFromNpm(data: {
         :is-running="isPluginRunning(selectedPlugin.path)"
         :is-pinned="isPluginPinned(selectedPlugin.path)"
         :is-disabled="isPluginDisabled(selectedPlugin.path)"
-        :show-market-button="!!selectedPlugin.marketPlugin"
+        :show-market-button="!!selectedPlugin.marketPlugin && !selectedPlugin.isBundled"
+        :is-bundled="!!selectedPlugin.isBundled"
         @back="closePluginDetail"
         @open="handleOpenPlugin(selectedPlugin)"
         @uninstall="handleUninstallFromDetail(selectedPlugin, $event)"

@@ -1,4 +1,5 @@
 import path from 'path'
+import crypto from 'crypto'
 import { app } from 'electron'
 import { physicalFs } from '../../utils/physicalFs'
 import { getPluginsPath } from '../appData/appDataPaths'
@@ -88,6 +89,59 @@ function readPrebundledPluginJson(entityPath: string): any | null {
   }
 }
 
+function fileHash(filePath: string): string {
+  const buf = physicalFs.readFileSync(filePath)
+  return crypto.createHash('sha1').update(buf).digest('hex')
+}
+
+/**
+ * 将 src 目录树同步到 dest（目录实体语义：发行包即权威）。
+ * 逐文件内容哈希比对：复制缺失/不一致文件，删除 dest 中发行包已不存在的多余文件。
+ * @returns 是否发生变更
+ */
+function syncDirectoryTree(src: string, dest: string): boolean {
+  let changed = false
+  const srcRels: string[] = []
+  const walk = (dir: string): void => {
+    for (const name of physicalFs.readdirSync(dir)) {
+      const p = path.join(dir, name)
+      const st = physicalFs.statSync(p)
+      if (st.isDirectory()) walk(p)
+      else srcRels.push(path.relative(src, p))
+    }
+  }
+  walk(src)
+  for (const rel of srcRels) {
+    const srcFile = path.join(src, rel)
+    const destFile = path.join(dest, rel)
+    let needCopy = false
+    try {
+      const st = physicalFs.statSync(destFile)
+      needCopy = !st.isFile() || fileHash(srcFile) !== fileHash(destFile)
+    } catch {
+      needCopy = true
+    }
+    if (needCopy) {
+      physicalFs.mkdirSync(path.dirname(destFile), { recursive: true })
+      physicalFs.copyFileSync(srcFile, destFile)
+      changed = true
+    }
+  }
+  const walkDel = (dir: string): void => {
+    for (const name of physicalFs.readdirSync(dir)) {
+      const p = path.join(dir, name)
+      const st = physicalFs.statSync(p)
+      if (st.isDirectory()) walkDel(p)
+      else if (!srcRels.includes(path.relative(dest, p))) {
+        physicalFs.rmSync(p, { force: true })
+        changed = true
+      }
+    }
+  }
+  if (physicalFs.existsSync(dest)) walkDel(dest)
+  return changed
+}
+
 export async function adoptPrebundledPlugins(pluginsAPI: PluginsAPI): Promise<void> {
   const dir = getPrebundledPluginsDir()
   if (!physicalFs.existsSync(dir)) return
@@ -114,11 +168,39 @@ export async function adoptPrebundledPlugins(pluginsAPI: PluginsAPI): Promise<vo
   physicalFs.mkdirSync(pluginsRoot, { recursive: true })
 
   let adoptedNew = 0
+  let synced = 0
   let skipped = 0
   for (const file of entries) {
     const srcEntity = path.join(dir, file)
     const destEntity = path.join(pluginsRoot, file)
+    const isAsar = file.toLowerCase().endsWith('.asar')
     if (physicalFs.existsSync(destEntity)) {
+      if (!isAsar) {
+        // 目录实体（自研/移植预捆绑）：发行包即权威。数据根已存在时做一致性同步，
+        // 避免数据根残留旧副本导致插件修复/升级不生效（asar 实体为市场原样分发，保持跳过）。
+        try {
+          const changed = syncDirectoryTree(srcEntity, destEntity)
+          if (changed) {
+            const config = readPrebundledPluginJson(srcEntity)
+            const result = await pluginsAPI.installer.adoptExistingEntity(destEntity)
+            if (result?.success) {
+              console.log(`[Prebundled] 目录实体同步更新: ${config?.name || file}`)
+              synced++
+            } else {
+              console.warn(
+                `[Prebundled] 目录实体同步后登记失败: ${file}`,
+                result?.error || '未知错误'
+              )
+            }
+          } else {
+            skipped++
+          }
+        } catch (error) {
+          console.warn(`[Prebundled] 目录实体同步失败: ${file}`, error)
+          skipped++
+        }
+        continue
+      }
       skipped++
       continue
     }
@@ -130,7 +212,6 @@ export async function adoptPrebundledPlugins(pluginsAPI: PluginsAPI): Promise<vo
     }
 
     try {
-      const isAsar = file.toLowerCase().endsWith('.asar')
       if (isAsar) {
         physicalFs.copyFileSync(srcEntity, destEntity)
         const srcUnpacked = `${srcEntity}.unpacked`
@@ -154,6 +235,6 @@ export async function adoptPrebundledPlugins(pluginsAPI: PluginsAPI): Promise<vo
     }
   }
   console.log(
-    `[Prebundled] 预置插件处理完成: 新登记 ${adoptedNew} / 已存在跳过 ${skipped} / 总数 ${entries.length}`
+    `[Prebundled] 预置插件处理完成: 新登记 ${adoptedNew} / 同步更新 ${synced} / 已存在跳过 ${skipped} / 总数 ${entries.length}`
   )
 }

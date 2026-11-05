@@ -47,6 +47,22 @@ window.utools?.onPluginEnter?.((action) => {
 });
 window.fileUnlocker = {
     async selectPath() {
+        // MT 兼容层：走宿主 uTools shim 的文件/文件夹选择对话框（取消或失败时返回 undefined）
+        const host = window.utools;
+        if (host && typeof host.showOpenDialog === 'function') {
+            try {
+                const picked = await host.showOpenDialog({
+                    title: '选择文件或文件夹',
+                    properties: ['openFile', 'openDirectory'],
+                });
+                if (Array.isArray(picked) && picked.length > 0) {
+                    return picked[0];
+                }
+            }
+            catch (error) {
+                console.error('[fileUnlocker] selectPath failed:', error);
+            }
+        }
         return undefined;
     },
     getInitialPath() {
@@ -55,6 +71,19 @@ window.fileUnlocker = {
     scanPath: service.scanPath,
     killAndRescan: service.killAndRescan,
     getPathForFile(file) {
+        // MT 兼容层：优先宿主 webUtils.getPathForFile（Electron 已移除 File.path），再兜底旧属性
+        const host = window.utools;
+        if (host && typeof host.getPathForFile === 'function') {
+            try {
+                const picked = host.getPathForFile(file);
+                if (picked) {
+                    return picked;
+                }
+            }
+            catch (error) {
+                console.error('[fileUnlocker] getPathForFile failed:', error);
+            }
+        }
         const dragFile = file;
         return dragFile.path || file.webkitRelativePath || undefined;
     },

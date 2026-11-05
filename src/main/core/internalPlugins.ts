@@ -5,20 +5,23 @@ import path from 'path'
  * 随包内置插件名称列表
  * 这些插件存在于 internal-plugins 目录，并由宿主在启动时自动装载。
  */
-export const BUNDLED_INTERNAL_PLUGIN_NAMES = [
-  'setting',
-  'system',
-  'screen-ocr',
-  'hotkey-radar',
-  'mindnote'
-] as const
+export const BUNDLED_INTERNAL_PLUGIN_NAMES = ['setting', 'system', 'screen-ocr'] as const
+
+/**
+ * 曾为随包内置、现已改为预捆绑分发的插件名称列表。
+ * 升级时需从已安装注册表清理这些插件的旧内置登记，
+ * 改由 adoptPrebundledPlugins 以预捆绑实体重新登记。
+ */
+export const RETIRED_BUNDLED_PLUGIN_NAMES = ['hotkey-radar', 'mindnote'] as const
 
 /**
  * 内部 API 特权插件名称列表
  * 这些插件允许调用 window.ztools.internal，但不一定是随包内置插件。
+ * 退役内置（现为预捆绑）插件保留特权，避免自身功能（如热键占用探测）失效。
  */
 export const INTERNAL_API_PLUGIN_NAMES = [
   ...BUNDLED_INTERNAL_PLUGIN_NAMES,
+  ...RETIRED_BUNDLED_PLUGIN_NAMES,
   'ztools-developer-plugin__dev',
   'ztools-developer-plugin'
 ] as const

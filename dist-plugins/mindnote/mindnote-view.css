@@ -1,0 +1,461 @@
+/* MindNote Git 入口按钮：跟随原生 btn-icon 外观，打开面板时高亮 */
+#mn-git-btn.active {
+  background: rgba(128, 128, 128, 0.18);
+  color: var(--accent, #4f8cff);
+}
+.mn-git-top-btn {
+  color: var(--text-color, inherit);
+}
+.mn-git-top-btn svg {
+  display: block;
+}
+
+/* ============ 侧栏 git 分支栏（参照 cmark 分支栏形态） ============ */
+/* 3.2.18：分支栏整体宽度不超容器（min-width:0 + 100%），杜绝被侧栏溢出裁切 */
+.mn-git-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-color, rgba(128, 128, 128, 0.16));
+  background: var(--bg-secondary, rgba(128, 128, 128, 0.06));
+}
+.mn-git-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  /* 3.2.19：chip 弹性占满可用宽度（不再被 150px 上限提前截断），短分支名（如 main）完整显示 */
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 220px;
+  padding: 2px 8px;
+  border: 1px solid var(--border-color, rgba(128, 128, 128, 0.28));
+  border-radius: 999px;
+  background: var(--bg-secondary, rgba(128, 128, 128, 0.1));
+  color: var(--text-color, inherit);
+  font-size: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.mn-git-branch:hover {
+  border-color: var(--accent, #4f8cff);
+  color: var(--accent, #4f8cff);
+}
+.mn-git-branch::before {
+  content: '⎇';
+  font-size: 13px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+.mn-git-branch-label {
+  /* 3.2.19：固定「分支」标签，不参与截断 */
+  flex: 0 0 auto;
+  opacity: 0.8;
+}
+.mn-git-branch-name {
+  /* 长分支名省略号截断，短名（main）完整显示 */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mn-git-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.mn-git-act,
+.mn-git-more {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-color, inherit);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mn-git-act:hover,
+.mn-git-more:hover {
+  background: rgba(128, 128, 128, 0.16);
+  color: var(--accent, #4f8cff);
+}
+
+/* ============ 顶栏工具按钮（刷新/AI，问题 3/8） ============ */
+.mn-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-color, inherit);
+  cursor: pointer;
+  flex: none;
+}
+.mn-tool-btn:hover {
+  background: rgba(128, 128, 128, 0.16);
+  color: var(--accent, #4f8cff);
+}
+
+/* ============ AI 生成弹窗（问题 8，复刻 cmark 弹窗视觉） ============ */
+.ai-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+.ai-panel {
+  width: min(520px, 92vw);
+  border-radius: 14px;
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid rgba(128, 128, 128, 0.24);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+  padding: 18px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-color, #222);
+}
+.ai-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-spark {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent, #4f8cff);
+  flex: none;
+}
+.ai-title {
+  font-size: 15px;
+  font-weight: 600;
+  flex: 1;
+}
+.ai-close {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ai-close:hover {
+  background: rgba(128, 128, 128, 0.16);
+}
+.ai-modelrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ai-modelleft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.ai-mlabel {
+  color: var(--text-secondary, #666);
+  flex: none;
+}
+.ai-modelset {
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--accent, #4f8cff);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.ai-modelset:hover {
+  background: rgba(79, 140, 255, 0.12);
+}
+.ai-model {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid rgba(128, 128, 128, 0.28);
+  border-radius: 8px;
+  background: var(--bg-secondary, rgba(128, 128, 128, 0.06));
+  color: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.ai-body {
+  display: flex;
+}
+.ai-input {
+  width: 100%;
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1px solid rgba(128, 128, 128, 0.28);
+  border-radius: 8px;
+  background: var(--bg-secondary, rgba(128, 128, 128, 0.06));
+  color: inherit;
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+.ai-input:focus {
+  border-color: var(--accent, #4f8cff);
+}
+.ai-out {
+  color: var(--accent, #4f8cff);
+  font-size: 12.5px;
+}
+.ai-err {
+  color: #b42318;
+  font-size: 12.5px;
+  word-break: break-all;
+}
+.ai-dialog-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ai-preset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(128, 128, 128, 0.28);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.ai-preset-btn:hover {
+  border-color: var(--accent, #4f8cff);
+  color: var(--accent, #4f8cff);
+  background: rgba(79, 140, 255, 0.08);
+}
+.ai-preset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ai-preset-ico {
+  display: inline-flex;
+  color: var(--accent, #4f8cff);
+}
+
+/* ============ 设置弹窗瘦身：CSS 层先兜底，JS 再精准恢复「主题」行 ============ */
+/* 打开瞬间不闪完整 7 行：隐藏备份/数据区块与字号等外观项，只留第一个区块第一行（主题） */
+.modal.settings-modal .settings-section {
+  display: none;
+}
+.modal.settings-modal .settings-section:first-child {
+  display: block;
+}
+.modal.settings-modal .settings-section:first-child .settings-option-row {
+  display: none;
+}
+.modal.settings-modal .settings-section:first-child .settings-option-row:first-child {
+  display: flex;
+}
+
+/* ============ 右键菜单 ============ */
+.mn-ctx {
+  position: fixed;
+  z-index: 999999;
+  min-width: 168px;
+  padding: 5px;
+  border-radius: 10px;
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid rgba(128, 128, 128, 0.24);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+}
+.mn-ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-color, #222);
+  text-align: left;
+  cursor: pointer;
+}
+.mn-ctx-item:hover {
+  background: rgba(79, 140, 255, 0.12);
+  color: var(--accent, #4f8cff);
+}
+.mn-ctx-ic {
+  width: 16px;
+  text-align: center;
+  font-size: 14px;
+}
+.mn-ctx-item.mn-ctx-checked {
+  color: var(--accent, #4f8cff);
+  font-weight: 600;
+}
+
+/* 追加进 bundle 原生菜单的分隔线与三项（独立样式，视觉兼容原生菜单） */
+.mn-ctx-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: rgba(128, 128, 128, 0.2);
+}
+.mn-ctx-append {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 132px;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-color, #222) !important;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.mn-ctx-append:hover {
+  background: rgba(79, 140, 255, 0.12) !important;
+  color: var(--accent, #4f8cff) !important;
+}
+
+/* ============ 锁定标识 ============ */
+.mn-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  font-size: 11px;
+  vertical-align: middle;
+  color: var(--accent, #4f8cff);
+}
+.mn-lock-ind {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(79, 140, 255, 0.14);
+  color: var(--accent, #4f8cff);
+  font-size: 12px;
+  line-height: 20px;
+  user-select: none;
+}
+
+/* ============ Toast ============ */
+.mn-toast {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999999;
+  padding: 8px 16px;
+  border-radius: 9px;
+  background: #333;
+  color: #fff;
+  font-size: 12.5px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+  animation: mn-toast-in 0.18s ease-out;
+}
+.mn-toast-err {
+  background: #b42318;
+}
+.mn-toast-warn {
+  background: #b45309;
+}
+@keyframes mn-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* 3.2.23 反馈④：首次运行初始化向导 */
+.mn-firstrun-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+}
+.mn-firstrun-card {
+  width: min(440px, 90vw);
+  border-radius: 14px;
+  background: var(--bg-primary, #ffffff);
+  border: 1px solid rgba(128, 128, 128, 0.24);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+  padding: 22px 24px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-color, #222);
+}
+.mn-firstrun-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+.mn-firstrun-desc {
+  color: var(--text-secondary, #666);
+  line-height: 1.7;
+}
+.mn-firstrun-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+.mn-firstrun-primary {
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  background: var(--accent, #4f8cff);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+.mn-firstrun-later {
+  border: 1px solid rgba(128, 128, 128, 0.28);
+  border-radius: 8px;
+  padding: 7px 16px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}

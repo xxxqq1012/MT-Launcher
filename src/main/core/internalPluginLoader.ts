@@ -3,7 +3,11 @@ import fsSync from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
 import api from '../api/index'
-import { BUNDLED_INTERNAL_PLUGIN_NAMES, getInternalPluginPath } from './internalPlugins'
+import {
+  BUNDLED_INTERNAL_PLUGIN_NAMES,
+  RETIRED_BUNDLED_PLUGIN_NAMES,
+  getInternalPluginPath
+} from './internalPlugins'
 
 /**
  * 加载所有内置插件，并在应用启动时将插件信息写入数据库。
@@ -15,9 +19,12 @@ export function loadInternalPlugins(): void {
   const isDev = !app.isPackaged
   const existingPlugins = api.dbGet('plugins') || []
 
-  // 移除旧的内置插件记录（基于名称判断）
+  // 移除旧的内置插件记录（基于名称判断）；退役内置（现为预捆绑）的旧登记一并清理，
+  // 由 adoptPrebundledPlugins 以预捆绑实体重新登记，避免残留指向失效路径的记录。
   const filteredPlugins = existingPlugins.filter(
-    (p: any) => !BUNDLED_INTERNAL_PLUGIN_NAMES.includes(p.name)
+    (p: any) =>
+      !BUNDLED_INTERNAL_PLUGIN_NAMES.includes(p.name) &&
+      !RETIRED_BUNDLED_PLUGIN_NAMES.includes(p.name)
   )
 
   // 重新加载所有内置插件

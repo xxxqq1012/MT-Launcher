@@ -147,7 +147,7 @@ async function loadPlugins(): Promise<void> {
   isLoading.value = true
   try {
     const [installedPlugins, disabledPlugins] = await Promise.all([
-      window.ztools.internal.getAllPlugins(),
+      window.ztools.internal.getPlugins(),
       window.ztools.internal.getDisabledPlugins()
     ])
     disabledPluginPaths.value = disabledPlugins

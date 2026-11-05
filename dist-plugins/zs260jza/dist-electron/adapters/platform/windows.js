@@ -1,21 +1,21 @@
-'use strict'
-Object.defineProperty(exports, '__esModule', { value: true })
-exports.scanWindowsPath = scanWindowsPath
-exports.killWindowsProcesses = killWindowsProcesses
-const node_child_process_1 = require('node:child_process')
-const promises_1 = require('node:fs/promises')
-const node_os_1 = require('node:os')
-const node_path_1 = require('node:path')
-const node_util_1 = require('node:util')
-const process_1 = require('../../core/process')
-const scanner_1 = require('../../core/scanner')
-const execFileAsync = (0, node_util_1.promisify)(node_child_process_1.execFile)
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.scanWindowsPath = scanWindowsPath;
+exports.killWindowsProcesses = killWindowsProcesses;
+const node_child_process_1 = require("node:child_process");
+const promises_1 = require("node:fs/promises");
+const node_os_1 = require("node:os");
+const node_path_1 = require("node:path");
+const node_util_1 = require("node:util");
+const process_1 = require("../../core/process");
+const scanner_1 = require("../../core/scanner");
+const execFileAsync = (0, node_util_1.promisify)(node_child_process_1.execFile);
 const log = {
-  error(message, error) {
-    console.error(message, error)
-  }
-}
-const restartManagerScript = String.raw`
+    error(message, error) {
+        console.error(message, error);
+    },
+};
+const restartManagerScript = String.raw `
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $OutputEncoding = [Console]::OutputEncoding
@@ -410,91 +410,79 @@ try {
 } finally {
     [void] [RestartManagerNative]::RmEndSession($session)
 }
-`
+`;
 function isAbortError(error) {
-  return (
-    error instanceof Error &&
-    (error.name === 'AbortError' || error.message.includes('The operation was aborted'))
-  )
+    return error instanceof Error && (error.name === 'AbortError' || error.message.includes('The operation was aborted'));
 }
 async function scanWindowsPath(path, options = {}, currentPid = process.pid) {
-  try {
-    const targetPath = path.trim()
-    if (!targetPath) {
-      throw new scanner_1.ReadableException('请选择要检测的文件或文件夹')
-    }
-    await (0, promises_1.access)(targetPath)
-    await (0, promises_1.stat)(targetPath)
-    const scriptPath = (0, node_path_1.join)(
-      (0, node_os_1.tmpdir)(),
-      `file-unlocker-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.ps1`
-    )
-    await (0, promises_1.writeFile)(
-      scriptPath,
-      `${String.fromCharCode(0xfeff)}${restartManagerScript}`,
-      { encoding: 'utf16le' }
-    )
-    let stdout = ''
     try {
-      const result = await execFileAsync(
-        'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath],
-        {
-          env: {
-            ...process.env,
-            FILE_UNLOCKER_TARGET: targetPath,
-            FILE_UNLOCKER_RECURSIVE: options.recursive === false ? 'false' : 'true'
-          },
-          maxBuffer: 1024 * 1024 * 4,
-          windowsHide: true,
-          signal: options.signal
+        const targetPath = path.trim();
+        if (!targetPath) {
+            throw new scanner_1.ReadableException('请选择要检测的文件或文件夹');
         }
-      )
-      stdout = result.stdout
-    } finally {
-      try {
-        await (0, promises_1.unlink)(scriptPath)
-      } catch (cleanupError) {
-        log.error('Failed to clean temporary scan script', cleanupError)
-      }
+        await (0, promises_1.access)(targetPath);
+        await (0, promises_1.stat)(targetPath);
+        const scriptPath = (0, node_path_1.join)((0, node_os_1.tmpdir)(), `file-unlocker-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.ps1`);
+        await (0, promises_1.writeFile)(scriptPath, `${String.fromCharCode(0xfeff)}${restartManagerScript}`, { encoding: 'utf16le' });
+        let stdout = '';
+        try {
+            const result = await execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath], {
+                env: {
+                    ...process.env,
+                    FILE_UNLOCKER_TARGET: targetPath,
+                    FILE_UNLOCKER_RECURSIVE: options.recursive === false ? 'false' : 'true',
+                },
+                maxBuffer: 1024 * 1024 * 4,
+                windowsHide: true,
+                signal: options.signal,
+            });
+            stdout = result.stdout;
+        }
+        finally {
+            try {
+                await (0, promises_1.unlink)(scriptPath);
+            }
+            catch (cleanupError) {
+                log.error('Failed to clean temporary scan script', cleanupError);
+            }
+        }
+        const output = stdout.trim();
+        const rawProcesses = output ? JSON.parse(output) : [];
+        const processInputs = Array.isArray(rawProcesses) ? rawProcesses : [rawProcesses];
+        return {
+            path: targetPath,
+            processes: processInputs.map((processInfo) => (0, process_1.markProcessRisk)(processInfo, currentPid)),
+            scannedAt: new Date().toISOString(),
+        };
     }
-    const output = stdout.trim()
-    const rawProcesses = output ? JSON.parse(output) : []
-    const processInputs = Array.isArray(rawProcesses) ? rawProcesses : [rawProcesses]
-    return {
-      path: targetPath,
-      processes: processInputs.map((processInfo) =>
-        (0, process_1.markProcessRisk)(processInfo, currentPid)
-      ),
-      scannedAt: new Date().toISOString()
+    catch (error) {
+        if (error instanceof scanner_1.ReadableException) {
+            throw error;
+        }
+        if (isAbortError(error)) {
+            throw new scanner_1.ReadableException('扫描已取消', error);
+        }
+        log.error('扫描占用进程失败', error);
+        throw new scanner_1.ReadableException('扫描失败，请确认路径存在且当前用户有访问权限', error);
     }
-  } catch (error) {
-    if (error instanceof scanner_1.ReadableException) {
-      throw error
-    }
-    if (isAbortError(error)) {
-      throw new scanner_1.ReadableException('扫描已取消', error)
-    }
-    log.error('扫描占用进程失败', error)
-    throw new scanner_1.ReadableException('扫描失败，请确认路径存在且当前用户有访问权限', error)
-  }
 }
 async function killWindowsProcesses(pids) {
-  const results = []
-  for (const pid of pids) {
-    try {
-      await execFileAsync('taskkill', ['/PID', String(pid), '/T', '/F'], {
-        windowsHide: true
-      })
-      results.push({ pid, success: true })
-    } catch (error) {
-      log.error(`结束进程失败: ${pid}`, error)
-      results.push({
-        pid,
-        success: false,
-        message: '结束进程失败，请检查权限或进程状态'
-      })
+    const results = [];
+    for (const pid of pids) {
+        try {
+            await execFileAsync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+                windowsHide: true,
+            });
+            results.push({ pid, success: true });
+        }
+        catch (error) {
+            log.error(`结束进程失败: ${pid}`, error);
+            results.push({
+                pid,
+                success: false,
+                message: '结束进程失败，请检查权限或进程状态',
+            });
+        }
     }
-  }
-  return results
+    return results;
 }

@@ -45,6 +45,8 @@ import aiRequestStatusTracker from '../core/aiRequestStatusTracker'
 console.log('[Plugin] mainPreload', mainPreload)
 
 const PLUGIN_OUT_GRACE_MS = 200
+// 预热建立但用户一直没打开的后台视图，空闲超过该时长后释放，把常驻内存还回去
+const PRELOAD_IDLE_UNLOAD_MS = 30 * 60 * 1000
 
 /**
  * 为插件视图注册外部链接拦截器
@@ -410,6 +412,12 @@ export class PluginManager {
   // 跟踪每个插件上次进入的状态（用于单例重入判断）
   private pluginLastEnterState: Map<string, PluginLastEnterState> = new Map()
   private preloadTasks = new Map<string, Promise<void>>()
+  // 仅由预热建立、尚未被用户打开的视图（path -> 建立时间）
+  private preloadOnlyViews = new Map<string, number>()
+  // 预热视图的空闲回收定时器
+  private preloadIdleTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  // 被用户真正打开过的插件，其缓存不参与预热空闲回收
+  private userOpenedViews = new Set<string>()
 
   /**
    * 获取插件默认高度
@@ -678,6 +686,9 @@ export class PluginManager {
     )
       return
 
+    // 用户实际打开了这个预热视图，转为常规缓存，不再按空闲策略回收
+    this.userOpenedViews.add(plugin.path)
+    this.cancelPreloadIdleUnload(plugin.path)
     this.mainWindow.contentView.addChildView(view)
     this.pluginView = view
     this.currentPluginPath = plugin.path
@@ -763,6 +774,7 @@ export class PluginManager {
       if (index !== -1) {
         this.pluginViews.splice(index, 1)
         this.pluginLastEnterState.delete(pluginPath)
+        this.cancelPreloadIdleUnload(pluginPath)
         console.log('[Plugin] 已从缓存中移除崩溃的插件:', pluginPath)
       }
 
@@ -1067,9 +1079,60 @@ export class PluginManager {
     this.preloadTasks.set(pluginPath, task)
     try {
       await task
+      // 预热/后台加载建立起的视图若一直没被打开，安排空闲回收；用户打开过的按常规缓存保留
+      if (
+        !this.userOpenedViews.has(pluginPath) &&
+        this.pluginViews.some((cached) => cached.path === pluginPath)
+      ) {
+        this.schedulePreloadIdleUnload(pluginPath)
+      }
     } finally {
       if (this.preloadTasks.get(pluginPath) === task) this.preloadTasks.delete(pluginPath)
     }
+  }
+
+  /**
+   * 用户真正打开预热视图后取消空闲回收，按常规缓存保留。
+   * @param pluginPath 插件路径
+   * @returns 无返回值
+   */
+  private cancelPreloadIdleUnload(pluginPath: string): void {
+    if (!this.preloadOnlyViews.has(pluginPath) && !this.preloadIdleTimers.has(pluginPath)) return
+    this.preloadOnlyViews.delete(pluginPath)
+    const timer = this.preloadIdleTimers.get(pluginPath)
+    if (timer) {
+      clearTimeout(timer)
+      this.preloadIdleTimers.delete(pluginPath)
+    }
+  }
+
+  /**
+   * 为预热视图安排空闲回收：到期仍未被用户打开则销毁视图回收内存。
+   * @param pluginPath 插件路径
+   * @returns 无返回值
+   */
+  private schedulePreloadIdleUnload(pluginPath: string): void {
+    this.cancelPreloadIdleUnload(pluginPath)
+    this.preloadOnlyViews.set(pluginPath, Date.now())
+    const timer = setTimeout(() => {
+      this.preloadIdleTimers.delete(pluginPath)
+      if (!this.preloadOnlyViews.has(pluginPath)) return
+      if (this.currentPluginPath === pluginPath) return
+      if (pluginWindowManager.hasWindowsByPlugin(pluginPath)) return
+      const cached = this.pluginViews.find((item) => item.path === pluginPath)
+      if (!cached || cached.view.webContents.isDestroyed()) {
+        this.preloadOnlyViews.delete(pluginPath)
+        return
+      }
+      console.log('[Plugin] 预热视图空闲超时，回收内存:', {
+        pluginPath,
+        idleMinutes: Math.round(PRELOAD_IDLE_UNLOAD_MS / 60000)
+      })
+      this.preloadOnlyViews.delete(pluginPath)
+      this.killPlugin(pluginPath)
+    }, PRELOAD_IDLE_UNLOAD_MS)
+    if (typeof timer.unref === 'function') timer.unref()
+    this.preloadIdleTimers.set(pluginPath, timer)
   }
 
   /**
@@ -1197,6 +1260,8 @@ export class PluginManager {
   public killPlugin(pluginPath: string): boolean {
     try {
       console.log('[Plugin] killPlugin 开始:', { pluginPath })
+      this.cancelPreloadIdleUnload(pluginPath)
+      this.userOpenedViews.delete(pluginPath)
       const wasPreparing = this.preloadTasks.delete(pluginPath)
       if (this.activeLaunch?.pluginPath === pluginPath) this.activeLaunch = null
       const index = this.pluginViews.findIndex((v) => v.path === pluginPath)
@@ -1281,6 +1346,10 @@ export class PluginManager {
   public killAllPlugins(): void {
     this.activeLaunch = null
     this.preloadTasks.clear()
+    this.preloadOnlyViews.clear()
+    for (const timer of this.preloadIdleTimers.values()) clearTimeout(timer)
+    this.preloadIdleTimers.clear()
+    this.userOpenedViews.clear()
     console.log('[Plugin] killAllPlugins 开始:', { total: this.pluginViews.length })
     for (const { view, path } of this.pluginViews) {
       try {

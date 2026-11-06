@@ -52,7 +52,105 @@ const selectedPlugin = ref<any | null>(null)
 const npmInstallPanelRef = ref<InstanceType<typeof NpmInstallPanel>>()
 
 // 过滤状态
-const filterStatus = ref<'all' | 'running' | 'upgradable'>('all')
+const filterStatus = ref<'all' | 'running' | 'preload' | 'upgradable'>('all')
+
+// 启动预热名单（与宿主 auto-start-plugin 同源：启动后后台预加载，打开即用）
+const PRELOAD_PLUGINS_KEY = 'auto-start-plugin'
+const preloadPluginNames = ref<string[]>([])
+
+/**
+ * 归一预热名单：兼容数组、JSON 字符串和 { data: [] } 包裹形态，
+ * 并统一去空白、去重，避免脏值让开关和计数判错。
+ * @param raw db 读到的原始值
+ * @returns 干净插件名数组
+ */
+function normalizePreloadList(raw: unknown): string[] {
+  let list: unknown = raw
+  if (list && typeof list === 'object' && !Array.isArray(list)) {
+    list = (list as { data?: unknown }).data ?? []
+  }
+  if (typeof list === 'string') {
+    try {
+      list = JSON.parse(list)
+    } catch {
+      list = []
+    }
+  }
+  if (!Array.isArray(list)) return []
+  return Array.from(
+    new Set(
+      list
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  )
+}
+
+async function loadPreloadPlugins(): Promise<void> {
+  try {
+    // 必须走 internal 通道：插件的运行时 preload 只暴露 ztools.internal，
+    // 顶层 ztools.dbGet 仅存在于主程序渲染进程，插件里调用会抛 TypeError。
+    const raw = await window.ztools.internal.dbGet(PRELOAD_PLUGINS_KEY)
+    if (raw === null || raw === undefined) {
+      // 首次使用（从未配置过）：默认勾选内置笔记插件；用户取消后写入空数组，不会被重复加回
+      const defaults = plugins.value.some((plugin) => plugin?.name === 'mindnote')
+        ? ['mindnote']
+        : []
+      preloadPluginNames.value = defaults
+      if (defaults.length > 0) {
+        await window.ztools.internal.dbPut(PRELOAD_PLUGINS_KEY, defaults)
+      }
+      return
+    }
+    preloadPluginNames.value = normalizePreloadList(raw)
+  } catch (error) {
+    preloadPluginNames.value = []
+  }
+}
+
+function isPluginPreload(pluginName: string): boolean {
+  const target = String(pluginName || '')
+    .trim()
+    .toLowerCase()
+  if (!target) return false
+  return preloadPluginNames.value.some((item) => item.toLowerCase() === target)
+}
+
+async function togglePreload(plugin: any): Promise<void> {
+  const name = plugin?.name
+  if (!name) return
+  const enabled = isPluginPreload(name)
+  const next = enabled
+    ? preloadPluginNames.value.filter((item) => item.toLowerCase() !== name.trim().toLowerCase())
+    : [...new Set([...preloadPluginNames.value, name])]
+  preloadPluginNames.value = next
+  try {
+    await window.ztools.internal.dbPut(PRELOAD_PLUGINS_KEY, next)
+    success(
+      enabled
+        ? `已关闭「${plugin.title || name}」的启动预热`
+        : `已开启「${plugin.title || name}」的启动预热，下次启动生效`
+    )
+  } catch (error) {
+    error('保存预热设置失败')
+    await loadPreloadPlugins()
+  }
+}
+
+// 「预热」页签显示的数量：只统计当前仍安装的插件，避免卸载后残留的名字把数字算大
+const preloadTabCount = computed(() => {
+  const installedNames = new Set(
+    plugins.value
+      .map((plugin) =>
+        String(plugin?.name || '')
+          .trim()
+          .toLowerCase()
+      )
+      .filter(Boolean)
+  )
+  return preloadPluginNames.value.filter((name) => installedNames.has(name.toLowerCase())).length
+})
 
 // 置顶列表（插件 path 有序数组，持久化到 db）
 const PINNED_PLUGINS_KEY = 'plugin-center-pinned'
@@ -153,6 +251,7 @@ async function loadPlugins(): Promise<void> {
     disabledPluginPaths.value = disabledPlugins
     plugins.value = buildPluginList(installedPlugins)
     await loadRunningPlugins()
+    await loadPreloadPlugins()
   } catch (err) {
     console.error('加载插件列表失败:', err)
   } finally {
@@ -845,6 +944,16 @@ async function handleInstallFromNpm(data: {
                 {{ upgradableTabCount }}
               </span>
             </button>
+            <button
+              class="tab-btn"
+              :class="{ active: filterStatus === 'preload' }"
+              @click="filterStatus = 'preload'"
+            >
+              预热
+              <span class="tab-count" :class="{ 'tab-count-preload': preloadTabCount > 0 }">
+                {{ preloadTabCount }}
+              </span>
+            </button>
           </div>
           <div class="button-group">
             <div class="more-menu-wrapper">
@@ -907,6 +1016,20 @@ async function handleInstallFromNpm(data: {
           </div>
         </div>
 
+        <!-- 预热页签的功能提示 -->
+        <div v-if="filterStatus === 'preload'" class="preload-tip">
+          <div class="preload-tip-line"></div>
+          <div class="preload-tip-body">
+            <div class="preload-tip-title">启动预热：把加载等待挪到启动后的空闲时间</div>
+            <div class="preload-tip-desc">
+              勾选后，MT Launcher
+              启动时会自动在后台预加载这个插件的页面，你打开它时页面已经就绪，等待时间通常从几秒降到
+              0.2 秒以内。代价是预热后会占一点内存：如果 30
+              分钟内一直没打开，视图会自动释放回冷启动；打开过一次之后就按正常缓存保留。建议只勾选每天都用的插件；小沈笔记已默认开启。设置在下一次启动应用后生效。
+            </div>
+          </div>
+        </div>
+
         <!-- 插件列表 -->
         <div class="plugin-list">
           <div
@@ -947,53 +1070,67 @@ async function handleInstallFromNpm(data: {
             </div>
 
             <div class="plugin-meta">
-              <PluginUpgradeButton
-                v-if="filterStatus === 'upgradable'"
-                class="upgrade-btn"
-                :disabled="
-                  upgradingPluginPath === plugin.path
-                    ? isCancellingUpgrade
-                    : isUpgradingAll || !!upgradingPluginPath
-                "
-                :version="plugin.latestVersion"
-                :loading="upgradingPluginPath === plugin.path"
-                :download-state="
-                  upgradingPluginPath === plugin.path ? upgradeDownloadState : undefined
-                "
-                @click.stop="handleUpgradePlugin(plugin)"
-              />
               <button
-                class="icon-btn open-btn"
-                :disabled="isPluginDisabled(plugin.path)"
-                title="打开插件"
-                @click.stop="handleOpenPlugin(plugin)"
+                v-if="filterStatus === 'preload'"
+                class="preload-switch"
+                :class="{ 'is-on': isPluginPreload(plugin.name) }"
+                :title="isPluginPreload(plugin.name) ? '点击关闭启动预热' : '点击开启启动预热'"
+                @click.stop="togglePreload(plugin)"
               >
-                <div class="i-z-play font-size-14px" />
+                <span class="preload-switch-knob"></span>
+                <span class="preload-switch-text">
+                  {{ isPluginPreload(plugin.name) ? '已开启' : '未开启' }}
+                </span>
               </button>
-              <button
-                v-if="isPluginRunning(plugin.path)"
-                class="icon-btn kill-btn"
-                title="终止运行"
-                :disabled="isKilling"
-                @click.stop="handleKillPlugin(plugin)"
-              >
-                <div class="i-z-stop font-size-14px" />
-              </button>
-              <button
-                class="icon-btn folder-btn"
-                title="打开插件目录"
-                @click.stop="handleOpenFolder(plugin)"
-              >
-                <div class="i-z-folder font-size-14px" />
-              </button>
-              <button
-                class="icon-btn pin-btn"
-                :class="{ 'is-pinned': isPluginPinned(plugin.path) }"
-                :title="isPluginPinned(plugin.path) ? '取消置顶' : '置顶'"
-                @click.stop="togglePin(plugin)"
-              >
-                <div class="i-z-pin font-size-14px" />
-              </button>
+              <template v-else>
+                <PluginUpgradeButton
+                  v-if="filterStatus === 'upgradable'"
+                  class="upgrade-btn"
+                  :disabled="
+                    upgradingPluginPath === plugin.path
+                      ? isCancellingUpgrade
+                      : isUpgradingAll || !!upgradingPluginPath
+                  "
+                  :version="plugin.latestVersion"
+                  :loading="upgradingPluginPath === plugin.path"
+                  :download-state="
+                    upgradingPluginPath === plugin.path ? upgradeDownloadState : undefined
+                  "
+                  @click.stop="handleUpgradePlugin(plugin)"
+                />
+                <button
+                  class="icon-btn open-btn"
+                  :disabled="isPluginDisabled(plugin.path)"
+                  title="打开插件"
+                  @click.stop="handleOpenPlugin(plugin)"
+                >
+                  <div class="i-z-play font-size-14px" />
+                </button>
+                <button
+                  v-if="isPluginRunning(plugin.path)"
+                  class="icon-btn kill-btn"
+                  title="终止运行"
+                  :disabled="isKilling"
+                  @click.stop="handleKillPlugin(plugin)"
+                >
+                  <div class="i-z-stop font-size-14px" />
+                </button>
+                <button
+                  class="icon-btn folder-btn"
+                  title="打开插件目录"
+                  @click.stop="handleOpenFolder(plugin)"
+                >
+                  <div class="i-z-folder font-size-14px" />
+                </button>
+                <button
+                  class="icon-btn pin-btn"
+                  :class="{ 'is-pinned': isPluginPinned(plugin.path) }"
+                  :title="isPluginPinned(plugin.path) ? '取消置顶' : '置顶'"
+                  @click.stop="togglePin(plugin)"
+                >
+                  <div class="i-z-pin font-size-14px" />
+                </button>
+              </template>
             </div>
           </div>
 
@@ -1497,5 +1634,82 @@ async function handleInstallFromNpm(data: {
 
 .more-menu-item.kill-all-item:hover:not(:disabled) {
   background: var(--warning-light-bg);
+}
+
+/* 预热页签：功能提示 */
+.preload-tip {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background: var(--active-bg);
+}
+
+.preload-tip-line {
+  width: 3px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--success-color);
+}
+
+.preload-tip-body {
+  min-width: 0;
+}
+
+.preload-tip-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 4px;
+}
+
+.preload-tip-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* 预热页签：每行的开关 */
+.preload-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--active-bg);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preload-switch:hover {
+  border-color: var(--success-color);
+}
+
+.preload-switch-knob {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.preload-switch.is-on {
+  color: var(--success-color);
+  border-color: var(--success-color);
+  background: var(--success-light-bg);
+}
+
+.preload-switch.is-on .preload-switch-knob {
+  background: var(--success-color);
+}
+
+.tab-btn.active .tab-count.tab-count-preload {
+  color: var(--success-color);
 }
 </style>

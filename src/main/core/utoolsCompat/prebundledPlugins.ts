@@ -167,6 +167,15 @@ export async function adoptPrebundledPlugins(pluginsAPI: PluginsAPI): Promise<vo
   const pluginsRoot = getPluginsPath()
   physicalFs.mkdirSync(pluginsRoot, { recursive: true })
 
+  // 已登记的插件路径（小写归一）。数据根实体存在但登记被删（用户在设置页删插件）时，
+  // 仅比对目录内容不会触发登记，插件会一直"消失"，需要按登记缺失补回来。
+  const registeredPlugins = databaseAPI.dbGet('plugins')
+  const registeredPaths = new Set<string>(
+    (Array.isArray(registeredPlugins) ? registeredPlugins : [])
+      .map((item: any) => String(item?.path || '').toLowerCase())
+      .filter(Boolean)
+  )
+
   let adoptedNew = 0
   let synced = 0
   let skipped = 0
@@ -177,15 +186,21 @@ export async function adoptPrebundledPlugins(pluginsAPI: PluginsAPI): Promise<vo
     if (physicalFs.existsSync(destEntity)) {
       if (!isAsar) {
         // 目录实体（自研/移植预捆绑）：发行包即权威。数据根已存在时做一致性同步，
-        // 避免数据根残留旧副本导致插件修复/升级不生效（asar 实体为市场原样分发，保持跳过）。
+        // 避免数据根残留旧副本导致插件修复/升级不生效；登记缺失时同步补登记。
         try {
           const changed = syncDirectoryTree(srcEntity, destEntity)
-          if (changed) {
+          const registered = registeredPaths.has(destEntity.toLowerCase())
+          if (changed || !registered) {
             const config = readPrebundledPluginJson(srcEntity)
             const result = await pluginsAPI.installer.adoptExistingEntity(destEntity)
             if (result?.success) {
-              console.log(`[Prebundled] 目录实体同步更新: ${config?.name || file}`)
-              synced++
+              if (changed) {
+                console.log(`[Prebundled] 目录实体同步更新: ${config?.name || file}`)
+                synced++
+              } else {
+                console.log(`[Prebundled] 补登记残留实体: ${config?.name || file}`)
+                adoptedNew++
+              }
             } else {
               console.warn(
                 `[Prebundled] 目录实体同步后登记失败: ${file}`,
@@ -198,6 +213,22 @@ export async function adoptPrebundledPlugins(pluginsAPI: PluginsAPI): Promise<vo
         } catch (error) {
           console.warn(`[Prebundled] 目录实体同步失败: ${file}`, error)
           skipped++
+        }
+        continue
+      }
+      // asar 实体为市场原样分发，内容不做同步；但登记缺失时同样补回来。
+      if (!registeredPaths.has(destEntity.toLowerCase())) {
+        const config = readPrebundledPluginJson(srcEntity)
+        try {
+          const result = await pluginsAPI.installer.adoptExistingEntity(destEntity)
+          if (result?.success) {
+            console.log(`[Prebundled] 补登记残留实体: ${config?.name || file}`)
+            adoptedNew++
+          } else {
+            console.warn(`[Prebundled] 补登记失败: ${file}`, result?.error || '未知错误')
+          }
+        } catch (error) {
+          console.warn(`[Prebundled] 补登记异常: ${file}`, error)
         }
         continue
       }

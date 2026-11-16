@@ -353,6 +353,69 @@
         padding: 2px 8px;
         font-size: 12px;
       }
+      /* ===== 3.2.43：代码模板 ===== */
+      .macro-table .col-op {
+        width: 96px;
+        text-align: center;
+        white-space: nowrap;
+      }
+      .macro-table .tpl-body {
+        max-width: 320px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+        opacity: 0.85;
+      }
+      .macro-table .tpl-vars {
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+        font-size: 11px;
+        opacity: 0.75;
+      }
+      .tpl-body-input {
+        width: 100%;
+        min-height: 150px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        padding: 8px;
+        box-sizing: border-box;
+        resize: vertical;
+      }
+      .modal-overlay-top {
+        z-index: 60;
+      }
+      .field-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 6px 0;
+      }
+      .field-row > span {
+        font-size: 12px;
+        min-width: 58px;
+        opacity: 0.75;
+      }
+      .field-row > input[type='text'],
+      .field-row > select {
+        flex: 1 1 auto;
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        font-size: 12px;
+        padding: 5px 8px;
+        box-sizing: border-box;
+      }
       .engine-status {
         font-size: 13px;
         line-height: 1.7;
@@ -666,6 +729,14 @@
           >
             宏配置
           </button>
+          <button
+            id="templateButton"
+            class="button ghost"
+            type="button"
+            title="代码模板：输入模板名后按 Tab 展开"
+          >
+            模板
+          </button>
           <button id="pasteButton" class="button ghost" type="button" title="从剪贴板粘贴">
             粘贴
           </button>
@@ -904,6 +975,113 @@
             <button id="macroResetButton" class="button ghost" type="button">恢复默认</button>
             <button id="macroSaveButton" class="button primary" type="button">保存并应用</button>
             <span id="macroStatus" class="hint"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3.2.43：代码模板 -->
+    <div id="templateModal" class="modal-overlay" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-label="代码模板">
+        <div class="modal-head">
+          <h2>模板</h2>
+          <button
+            id="templateModalCloseButton"
+            class="modal-close"
+            type="button"
+            title="关闭"
+            aria-label="关闭"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="config-section">
+          <h3>代码模板</h3>
+          <span class="hint"
+            >在「原始 SQL」里输入模板名（例如 df）后按 Tab，就会插入对应模板。模板里的
+            ${table}、${column} 这类变量会原样保留为占位符，光标停在第一个变量上，继续按 Tab
+            可跳到下一个变量。支持变量：${table} ${column} ${schema} ${cursor} ${date} ${time}
+            ${user} ${selection}。</span
+          >
+          <label class="checkbox-label">
+            <input id="templateEnabledInput" type="checkbox" />
+            <span>启用代码模板</span>
+          </label>
+          <div class="macro-table-wrap">
+            <table class="macro-table template-table">
+              <thead>
+                <tr>
+                  <th class="col-on">启用</th>
+                  <th>名称</th>
+                  <th>描述</th>
+                  <th>模式</th>
+                  <th>变量</th>
+                  <th class="col-op">操作</th>
+                </tr>
+              </thead>
+              <tbody id="templateRows"></tbody>
+            </table>
+          </div>
+          <div class="row">
+            <button id="templateAddButton" class="button ghost" type="button">新建模板</button>
+            <button id="templateSaveButton" class="button primary" type="button">保存并应用</button>
+            <span id="templateStatus" class="hint"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3.2.43：编辑模板 -->
+    <div id="templateEditModal" class="modal-overlay modal-overlay-top" hidden>
+      <div class="modal-card modal-narrow" role="dialog" aria-modal="true" aria-label="编辑模板">
+        <div class="modal-head">
+          <h2>编辑模板</h2>
+          <button
+            id="templateEditCloseButton"
+            class="modal-close"
+            type="button"
+            title="关闭"
+            aria-label="关闭"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="config-section">
+          <div class="field-row">
+            <span>名称</span>
+            <input id="templateNameInput" type="text" spellcheck="false" placeholder="例如 df" />
+          </div>
+          <div class="field-row">
+            <span>描述</span>
+            <input
+              id="templateDescInput"
+              type="text"
+              spellcheck="false"
+              placeholder="例如 delete from"
+            />
+          </div>
+          <label class="checkbox-label">
+            <input id="templateItemEnabledInput" type="checkbox" />
+            <span>启用该模板</span>
+          </label>
+          <div class="field-row">
+            <span>模式</span>
+            <select id="templateVarSelect"></select>
+            <button id="templateVarInsertButton" class="button ghost" type="button">
+              插入变量
+            </button>
+          </div>
+          <textarea
+            id="templateBodyInput"
+            class="tpl-body-input"
+            spellcheck="false"
+            aria-label="模板模式"
+            placeholder="例如 delete from ${table} where 1=1"
+          ></textarea>
+          <div class="row">
+            <button id="templateEditSaveButton" class="button primary" type="button">保存</button>
+            <button id="templateEditCancelButton" class="button ghost" type="button">取消</button>
+            <span id="templateEditStatus" class="hint"></span>
           </div>
         </div>
       </div>
@@ -1611,6 +1789,8 @@
         let brkNodes = null
         let brkNodesFor = null
         let brkRaf = 0
+        /** 双击/选中括号后固定高亮，不随鼠标移出清除 */
+        let brkPinned = false
 
         function isBracketOpen(c) {
           return c === '(' || c === '[' || c === '{'
@@ -1787,6 +1967,7 @@
           const ta = $('outputSql')
           const hl = $('outputHl')
           if (!ta || !hl) return
+          if (brkPinned) return
           const text = ta.value
           if (!text) return
           if (text !== brkPairsFor) {
@@ -1813,10 +1994,56 @@
           renderOutHl()
         }
 
+        /** 光标/选中位置落在括号上时，固定高亮配对括号（双击选中同样生效） */
+        function handleOutputSelectionMatch() {
+          const ta = $('outputSql')
+          if (!ta) return
+          const text = ta.value
+          if (!text) {
+            if (brkPinned) {
+              brkMarks = []
+              brkPinned = false
+              renderOutHl()
+            }
+            return
+          }
+          if (text !== brkPairsFor) {
+            brkPairs = buildBracketPairs(text)
+            brkPairsFor = text
+          }
+          const s = ta.selectionStart
+          const e = ta.selectionEnd
+          let hit = -1
+          if (e - s === 1) {
+            if (isBracketOpen(text[s]) || isBracketClose(text[s])) hit = s
+          } else if (s === e) {
+            if (isBracketOpen(text[s]) || isBracketClose(text[s])) hit = s
+            else if (s > 0 && (isBracketOpen(text[s - 1]) || isBracketClose(text[s - 1])))
+              hit = s - 1
+          }
+          const pair = hit >= 0 ? brkPairs.get(hit) : undefined
+          if (pair === undefined) {
+            if (brkPinned) {
+              brkPinned = false
+              brkMarks = []
+              brkHoverKey = ''
+              renderOutHl()
+            }
+            return
+          }
+          const key = hit + ':' + pair
+          if (brkPinned && key === brkHoverKey) return
+          brkHoverKey = key
+          brkPinned = true
+          brkMarks = [hit, pair]
+          renderOutHl()
+        }
+
         function bindBracketMatch() {
           const ta = $('outputSql')
           if (!ta) return
           ta.addEventListener('mousemove', (e) => {
+            if (brkPinned) return
             const x = e.clientX
             const y = e.clientY
             if (brkRaf) cancelAnimationFrame(brkRaf)
@@ -1830,11 +2057,22 @@
               cancelAnimationFrame(brkRaf)
               brkRaf = 0
             }
+            if (brkPinned) return
             if (brkMarks.length || brkHoverKey) {
               brkMarks = []
               brkHoverKey = ''
               renderOutHl()
             }
+          })
+          // 双击 / 单击括号：匹配另一侧；点空白处取消固定高亮
+          ta.addEventListener('dblclick', handleOutputSelectionMatch)
+          ta.addEventListener('mouseup', handleOutputSelectionMatch)
+          ta.addEventListener('keyup', (e) => {
+            if (e.key === 'Escape') return
+            handleOutputSelectionMatch()
+          })
+          ta.addEventListener('input', () => {
+            brkPinned = false
           })
         }
 
@@ -2382,9 +2620,437 @@
           }
         }
 
+        /* ===================== 3.2.43 代码模板（模板名 + Tab 展开） ===================== */
+        const TEMPLATE_STORE_KEY = 'sqlTemplates'
+        const TEMPLATE_VARS = [
+          'table',
+          'column',
+          'schema',
+          'cursor',
+          'date',
+          'time',
+          'user',
+          'selection'
+        ]
+        const TEMPLATE_NAME_RE = /^[A-Za-z_][A-Za-z0-9_$]*$/
+        const PLACEHOLDER_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g
+
+        let templateState = { enabled: true, items: [] }
+        let templateBound = false
+        let tplEditIndex = -1
+        let snipSession = null
+
+        function normalizeTemplateItem(item) {
+          if (!item) return null
+          return {
+            enabled: item.enabled !== false,
+            name: String(item.name || '').trim(),
+            desc: String(item.desc || ''),
+            body: String(item.body || '')
+          }
+        }
+
+        function cloneTemplateItem(item) {
+          return normalizeTemplateItem(item) || { enabled: true, name: '', desc: '', body: '' }
+        }
+
+        function loadTemplateState() {
+          let saved = null
+          try {
+            const b = window.sqlFormatterBridge
+            if (b && typeof b.readSettings === 'function')
+              saved = b.readSettings()[TEMPLATE_STORE_KEY]
+          } catch (e) {}
+          if (saved && Array.isArray(saved.items)) {
+            templateState = {
+              enabled: saved.enabled !== false,
+              items: saved.items.map(cloneTemplateItem)
+            }
+          } else {
+            templateState = { enabled: true, items: [] }
+          }
+        }
+
+        function saveTemplateState() {
+          try {
+            const b = window.sqlFormatterBridge
+            if (!b || typeof b.writeSettings !== 'function') return false
+            const settings = b.readSettings() || {}
+            settings[TEMPLATE_STORE_KEY] = {
+              enabled: templateState.enabled !== false,
+              items: templateState.items.map(cloneTemplateItem)
+            }
+            return !!b.writeSettings(settings)
+          } catch (e) {
+            return false
+          }
+        }
+
+        /** 模式里出现的变量名（去重，保持出现顺序） */
+        function collectTemplateVars(body) {
+          const out = []
+          PLACEHOLDER_RE.lastIndex = 0
+          let m
+          while ((m = PLACEHOLDER_RE.exec(String(body || ''))) !== null) {
+            if (!out.includes(m[1])) out.push(m[1])
+          }
+          return out
+        }
+
+        function renderTemplateRows() {
+          const tbody = $('templateRows')
+          if (!tbody) return
+          tbody.innerHTML = ''
+          if (!templateState.items.length) {
+            const tr = document.createElement('tr')
+            const td = document.createElement('td')
+            td.colSpan = 6
+            td.textContent = '还没有模板，点下方「新建模板」添加'
+            td.style.opacity = '0.7'
+            td.style.padding = '10px 8px'
+            tr.appendChild(td)
+            tbody.appendChild(tr)
+            return
+          }
+          templateState.items.forEach((item, idx) => {
+            const tr = document.createElement('tr')
+            tr.dataset.idx = String(idx)
+
+            const tdOn = document.createElement('td')
+            tdOn.className = 'col-on'
+            const cb = document.createElement('input')
+            cb.type = 'checkbox'
+            cb.checked = item.enabled !== false
+            cb.title = '启用该模板'
+            cb.addEventListener('change', () => {
+              item.enabled = cb.checked
+            })
+            tdOn.appendChild(cb)
+            tr.appendChild(tdOn)
+
+            const tdName = document.createElement('td')
+            tdName.textContent = item.name
+            tdName.style.fontFamily = "ui-monospace, Consolas, 'Courier New', monospace"
+            tr.appendChild(tdName)
+
+            const tdDesc = document.createElement('td')
+            tdDesc.textContent = item.desc
+            tr.appendChild(tdDesc)
+
+            const tdBody = document.createElement('td')
+            tdBody.className = 'tpl-body'
+            tdBody.textContent = String(item.body || '').replace(/\s+/g, ' ')
+            tdBody.title = item.body
+            tr.appendChild(tdBody)
+
+            const tdVars = document.createElement('td')
+            tdVars.className = 'tpl-vars'
+            const vars = collectTemplateVars(item.body)
+            tdVars.textContent = vars.length ? vars.map((v) => '${' + v + '}').join(' ') : ''
+            tdVars.title = tdVars.textContent
+            tr.appendChild(tdVars)
+
+            const tdOp = document.createElement('td')
+            tdOp.className = 'col-op'
+            const editBtn = document.createElement('button')
+            editBtn.type = 'button'
+            editBtn.className = 'macro-del'
+            editBtn.textContent = '编辑'
+            editBtn.addEventListener('click', () => openTemplateEditor(idx))
+            const delBtn = document.createElement('button')
+            delBtn.type = 'button'
+            delBtn.className = 'macro-del'
+            delBtn.textContent = '删除'
+            delBtn.style.marginLeft = '6px'
+            delBtn.addEventListener('click', () => {
+              const name = templateState.items[idx].name || '未命名'
+              if (!window.confirm('确定删除模板「' + name + '」？')) return
+              templateState.items.splice(idx, 1)
+              renderTemplateRows()
+              setStatus($('templateStatus'), '已删除，点「保存并应用」生效', null)
+            })
+            tdOp.appendChild(editBtn)
+            tdOp.appendChild(delBtn)
+            tr.appendChild(tdOp)
+
+            tbody.appendChild(tr)
+          })
+        }
+
+        function openTemplateEditor(idx) {
+          tplEditIndex = typeof idx === 'number' ? idx : -1
+          const item =
+            tplEditIndex >= 0
+              ? templateState.items[tplEditIndex]
+              : { enabled: true, name: '', desc: '', body: '' }
+          $('templateNameInput').value = item.name || ''
+          $('templateDescInput').value = item.desc || ''
+          $('templateBodyInput').value = item.body || ''
+          $('templateItemEnabledInput').checked = item.enabled !== false
+          setStatus($('templateEditStatus'), '', null)
+          openModal('templateEditModal')
+          setTimeout(() => $('templateNameInput').focus(), 30)
+        }
+
+        function closeTemplateEditor() {
+          closeModal('templateEditModal')
+          tplEditIndex = -1
+        }
+
+        function insertTemplateVar() {
+          const sel = $('templateVarSelect')
+          const ta = $('templateBodyInput')
+          if (!sel || !ta) return
+          const token = '${' + sel.value + '}'
+          const s = ta.selectionStart
+          const e = ta.selectionEnd
+          ta.value = ta.value.slice(0, s) + token + ta.value.slice(e)
+          ta.focus()
+          ta.setSelectionRange(s + token.length, s + token.length)
+        }
+
+        function saveTemplateEditor() {
+          const name = String($('templateNameInput').value || '').trim()
+          const desc = String($('templateDescInput').value || '')
+          const body = String($('templateBodyInput').value || '')
+          const enabled = !!$('templateItemEnabledInput').checked
+          if (!name) {
+            setStatus($('templateEditStatus'), '名称不能为空', false)
+            return
+          }
+          if (!TEMPLATE_NAME_RE.test(name)) {
+            setStatus(
+              $('templateEditStatus'),
+              '名称只能用字母、数字、下划线、$，且不能以数字开头',
+              false
+            )
+            return
+          }
+          const dup = templateState.items.some(
+            (it, i) => i !== tplEditIndex && it.name.toLowerCase() === name.toLowerCase()
+          )
+          if (dup) {
+            setStatus($('templateEditStatus'), '已存在同名模板：' + name, false)
+            return
+          }
+          if (!body.trim()) {
+            setStatus($('templateEditStatus'), '模式不能为空', false)
+            return
+          }
+          const item = { enabled: enabled, name: name, desc: desc, body: body }
+          if (tplEditIndex >= 0) templateState.items[tplEditIndex] = item
+          else templateState.items.push(item)
+          renderTemplateRows()
+          closeTemplateEditor()
+          setStatus($('templateStatus'), '已保存，点「保存并应用」生效', null)
+        }
+
+        /** 光标/选中位置是否落在字符串或注释里（模板不在这里展开） */
+        function isInStringOrComment(text, pos) {
+          let inStr = null
+          let i = 0
+          while (i < pos) {
+            const c = text[i]
+            if (inStr) {
+              if (c === '\\') {
+                i += 2
+                continue
+              }
+              if (c === inStr) {
+                if (text[i + 1] === inStr) {
+                  i += 2
+                  continue
+                }
+                inStr = null
+              }
+              i += 1
+              continue
+            }
+            if (c === "'" || c === '"') {
+              inStr = c
+              i += 1
+              continue
+            }
+            if (c === '-' && text[i + 1] === '-') {
+              const j = text.indexOf('\n', i)
+              if (j < 0 || j >= pos) return true
+              i = j + 1
+              continue
+            }
+            if (c === '/' && text[i + 1] === '*') {
+              const j = text.indexOf('*/', i + 2)
+              if (j < 0 || j + 2 > pos) return true
+              i = j + 2
+              continue
+            }
+            i += 1
+          }
+          return inStr !== null
+        }
+
+        function matchTemplate(word) {
+          const name = String(word || '').toLowerCase()
+          for (const item of templateState.items) {
+            if (item.enabled === false) continue
+            if (String(item.name || '').toLowerCase() === name) return item
+          }
+          return null
+        }
+
+        /** 用模板模式替换光标前的模板名，并把光标放到第一个变量上 */
+        function applyTemplate(ta, item, start) {
+          const text = ta.value
+          const pos = ta.selectionStart
+          const body = String(item.body || '')
+          ta.value = text.slice(0, start) + body + text.slice(pos)
+          const insertAt = start
+          const marks = []
+          PLACEHOLDER_RE.lastIndex = 0
+          let m
+          while ((m = PLACEHOLDER_RE.exec(body)) !== null) {
+            marks.push({ start: insertAt + m.index, len: m[0].length })
+          }
+          ta.focus()
+          // 先广播 input（会清掉旧的变量跳转会话），再建立本次会话
+          ta.dispatchEvent(new Event('input'))
+          if (marks.length) {
+            ta.setSelectionRange(marks[0].start, marks[0].start + marks[0].len)
+            snipSession = { text: ta.value, marks: marks, idx: 0, end: insertAt + body.length }
+          } else {
+            ta.setSelectionRange(insertAt + body.length, insertAt + body.length)
+            snipSession = null
+          }
+        }
+
+        /** Tab 跳到下一个变量；已是最后一个则把光标放到插入内容末尾并结束 */
+        function advanceSnippet(ta) {
+          if (!snipSession || snipSession.text !== ta.value) {
+            snipSession = null
+            return false
+          }
+          if (snipSession.idx + 1 < snipSession.marks.length) {
+            snipSession.idx += 1
+            const mk = snipSession.marks[snipSession.idx]
+            ta.setSelectionRange(mk.start, mk.start + mk.len)
+            return true
+          }
+          const lastMark = snipSession.marks[snipSession.marks.length - 1]
+          const end =
+            typeof snipSession.end === 'number' ? snipSession.end : lastMark.start + lastMark.len
+          ta.setSelectionRange(end, end)
+          snipSession = null
+          return true
+        }
+
+        /** 光标前的词命中启用模板时展开并返回 true */
+        function tryExpandTemplate(ta) {
+          if (!ta || templateState.enabled === false) return false
+          if (ta.selectionStart !== ta.selectionEnd) return false
+          const text = ta.value
+          const pos = ta.selectionStart
+          let start = pos
+          while (start > 0 && /[A-Za-z0-9_$]/.test(text[start - 1])) start -= 1
+          const word = text.slice(start, pos)
+          if (!word) return false
+          if (isInStringOrComment(text, start)) return false
+          const item = matchTemplate(word)
+          if (!item) return false
+          applyTemplate(ta, item, start)
+          return true
+        }
+
+        function bindTemplateTrigger() {
+          const ta = $('inputSql')
+          if (!ta || ta.dataset.templateBound) return
+          ta.dataset.templateBound = '1'
+          ta.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab' || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return
+            if (snipSession && advanceSnippet(ta)) {
+              e.preventDefault()
+              return
+            }
+            if (!tryExpandTemplate(ta)) return
+            e.preventDefault()
+            const st = $('statusText')
+            if (st) st.textContent = '已插入模板'
+          })
+          ta.addEventListener('input', () => {
+            snipSession = null
+          })
+          ta.addEventListener('pointerdown', () => {
+            snipSession = null
+          })
+        }
+
+        function bindTemplateUi() {
+          if (templateBound) return
+          templateBound = true
+
+          const btn = $('templateButton')
+          if (btn) {
+            btn.addEventListener('click', () => {
+              renderTemplateRows()
+              const en = $('templateEnabledInput')
+              if (en) en.checked = templateState.enabled !== false
+              setStatus($('templateStatus'), '', null)
+              openModal('templateModal')
+            })
+          }
+          const closeBtn = $('templateModalCloseButton')
+          if (closeBtn) closeBtn.addEventListener('click', () => closeModal('templateModal'))
+          const modal = $('templateModal')
+          if (modal) {
+            modal.addEventListener('click', (e) => {
+              if (e.target === modal) closeModal('templateModal')
+            })
+          }
+          const addBtn = $('templateAddButton')
+          if (addBtn) addBtn.addEventListener('click', () => openTemplateEditor(-1))
+          const saveBtn = $('templateSaveButton')
+          if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+              const en = $('templateEnabledInput')
+              templateState.enabled = en ? en.checked : true
+              if (!saveTemplateState()) {
+                setStatus($('templateStatus'), '保存失败（配置目录不可写）', false)
+                return
+              }
+              setStatus($('templateStatus'), '已保存并应用', true)
+            })
+          }
+
+          const varSel = $('templateVarSelect')
+          if (varSel) {
+            TEMPLATE_VARS.forEach((name) => {
+              const opt = document.createElement('option')
+              opt.value = name
+              opt.textContent = '${' + name + '}'
+              varSel.appendChild(opt)
+            })
+          }
+          const insertBtn = $('templateVarInsertButton')
+          if (insertBtn) insertBtn.addEventListener('click', insertTemplateVar)
+
+          const editModal = $('templateEditModal')
+          const editClose = $('templateEditCloseButton')
+          if (editClose) editClose.addEventListener('click', closeTemplateEditor)
+          if (editModal) {
+            editModal.addEventListener('click', (e) => {
+              if (e.target === editModal) closeTemplateEditor()
+            })
+          }
+          const editSave = $('templateEditSaveButton')
+          if (editSave) editSave.addEventListener('click', saveTemplateEditor)
+          const editCancel = $('templateEditCancelButton')
+          if (editCancel) editCancel.addEventListener('click', closeTemplateEditor)
+        }
+
         loadMacroState()
         bindMacroUi()
         bindBracketMatch()
+        loadTemplateState()
+        bindTemplateUi()
+        bindTemplateTrigger()
 
         initTheme()
         buildRuleCheckboxes()

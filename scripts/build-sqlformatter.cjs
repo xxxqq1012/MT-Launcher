@@ -14,6 +14,7 @@ const BUILD_DIR = path.join(SRC_DIR, 'build')
 const ENGINE_DIR = 'D:\\Datas\\mTools\\wjz-sqlFormat'
 const OUT_DIR = path.join(ROOT, 'dist-plugins')
 const TMP_ASAR = path.join(SRC_DIR, 'sqlformatter.tmp.asar')
+const CFG_NAME = 'sqlFormat.cfg'
 
 async function main() {
   // 1. 组装构建目录（页面/preload + 引擎文件）
@@ -37,11 +38,19 @@ async function main() {
   }
   const engineFiles = fs
     .readdirSync(ENGINE_DIR)
-    .filter((n) => !/\.(doc|bat)$/i.test(n) && n !== 'lib')
+    .filter((n) => !/\.(doc|bat)$/i.test(n) && n !== 'lib' && n !== CFG_NAME)
   for (const f of engineFiles) {
     if (f.endsWith('.asar')) continue // 不把旧插件 asar 打进新包
     fs.copyFileSync(path.join(ENGINE_DIR, f), path.join(BUILD_DIR, f))
   }
+  // 默认配置以仓库版为准：引擎目录里的 sqlFormat.cfg 常被本地调参污染，
+  // 直接取它会把本地改动带进发行包（用户更新后默认值随之漂移）。
+  const repoCfg = path.join(SRC_DIR, CFG_NAME)
+  if (!fs.existsSync(repoCfg)) {
+    console.error('[build-sqlformatter] 仓库默认配置缺失: ' + repoCfg)
+    process.exit(1)
+  }
+  fs.copyFileSync(repoCfg, path.join(BUILD_DIR, CFG_NAME))
   const libSrc = path.join(ENGINE_DIR, 'lib')
   if (fs.existsSync(libSrc)) {
     for (const f of fs.readdirSync(libSrc)) {

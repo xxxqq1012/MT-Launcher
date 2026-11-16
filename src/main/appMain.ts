@@ -25,7 +25,10 @@ import { registerIconProtocolForSession, registerIconScheme } from './core/iconP
 import { getLogsPath } from './core/appData/appDataPaths'
 import { migrateLegacyDataIfNeeded } from './core/appData/migrateLegacyData'
 import { loadInternalPlugins } from './core/internalPluginLoader'
-import { adoptPrebundledPlugins } from './core/utoolsCompat/prebundledPlugins'
+import {
+  adoptPrebundledPlugins,
+  syncPrebundledAsarEntities
+} from './core/utoolsCompat/prebundledPlugins'
 import pluginManager from './managers/pluginManager'
 import windowManager from './managers/windowManager'
 
@@ -140,6 +143,11 @@ app.whenReady().then(async () => {
 
   // 便携版/自定义数据目录：首次运行自动迁移旧 ~/.ztools 核心数据（插件/设置/剪贴板）。
   migrateLegacyDataIfNeeded()
+
+  // ✅ 最先同步预捆绑 asar 实体：Electron 进程内按路径缓存 asar 目录头，
+  // 若先读到旧归档再同名覆盖，后续读取会落到错位字节（plugin.json 解析失败、插件打不开）。
+  // 因此替换必须发生在任何 asar 读取之前，这里只做文件同步，不涉及插件登记。
+  syncPrebundledAsarEntities()
 
   // 注册自定义图标协议到默认 session (ztools-icon://)
   registerIconProtocolForSession(session.defaultSession)

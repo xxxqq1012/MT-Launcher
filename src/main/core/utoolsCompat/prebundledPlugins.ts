@@ -196,6 +196,53 @@ function syncUnpackedTree(src: string, dest: string): boolean {
   return changed
 }
 
+/**
+ * 同步单个 ASAR 实体的归档与侧车（发行包即权威，用户运行时配置保留）。
+ * @returns 是否发生了归档替换
+ */
+function syncAsarEntity(srcEntity: string, destEntity: string): boolean {
+  if (!physicalFs.existsSync(destEntity)) return false
+  let changed = false
+  try {
+    if (fileHash(srcEntity) !== fileHash(destEntity)) {
+      physicalFs.copyFileSync(srcEntity, destEntity)
+      changed = true
+    }
+  } catch (error) {
+    console.warn('[Prebundled] asar 实体写入失败:', path.basename(destEntity), error)
+    return false
+  }
+  if (changed) {
+    const srcUnpacked = `${srcEntity}.unpacked`
+    if (physicalFs.existsSync(srcUnpacked)) {
+      syncUnpackedTree(srcUnpacked, `${destEntity}.unpacked`)
+    }
+  }
+  return changed
+}
+
+/**
+ * 启动最早期预同步 ASAR 实体（只动文件，不碰插件登记）。
+ * Electron 在同一进程内按路径缓存 asar 目录头：若先读到旧归档、随后同名原地覆盖，
+ * 之后所有读取都会落在错位字节上（表现为 `plugin.json` JSON.parse 失败、插件打不开）。
+ * 所以替换必须发生在任何 asar 读取之前。
+ */
+export function syncPrebundledAsarEntities(): void {
+  const dir = getPrebundledPluginsDir()
+  if (!physicalFs.existsSync(dir)) return
+  const pluginsRoot = getPluginsPath()
+  physicalFs.mkdirSync(pluginsRoot, { recursive: true })
+  let synced = 0
+  for (const file of physicalFs.readdirSync(dir).sort()) {
+    if (file.startsWith('.') || !file.toLowerCase().endsWith('.asar')) continue
+    if (syncAsarEntity(path.join(dir, file), path.join(pluginsRoot, file))) {
+      synced++
+      console.log(`[Prebundled] asar 实体预同步: ${file}`)
+    }
+  }
+  if (synced > 0) console.log(`[Prebundled] 启动预同步完成: ${synced} 个 asar 实体`)
+}
+
 export async function adoptPrebundledPlugins(pluginsAPI: PluginsAPI): Promise<void> {
   const dir = getPrebundledPluginsDir()
   if (!physicalFs.existsSync(dir)) return
@@ -274,17 +321,9 @@ export async function adoptPrebundledPlugins(pluginsAPI: PluginsAPI): Promise<vo
       // 需要按「发行包即权威」同步，否则升级后仍旧运行旧页面。
       // 同步只覆盖 unpacked 侧车中发行包分发的文件，用户运行时配置保留。
       let asarChanged = false
-      try {
-        if (fileHash(srcEntity) !== fileHash(destEntity)) {
-          physicalFs.copyFileSync(srcEntity, destEntity)
-          const srcUnpacked = `${srcEntity}.unpacked`
-          const destUnpacked = `${destEntity}.unpacked`
-          if (physicalFs.existsSync(srcUnpacked)) syncUnpackedTree(srcUnpacked, destUnpacked)
-          asarChanged = true
-          console.log(`[Prebundled] asar 实体同步更新: ${file}`)
-        }
-      } catch (error) {
-        console.warn('[Prebundled] asar 实体同步失败:', file, error)
+      if (syncAsarEntity(srcEntity, destEntity)) {
+        asarChanged = true
+        console.log(`[Prebundled] asar 实体同步更新: ${file}`)
       }
       // 登记缺失时把残留实体补回来。
       if (asarChanged || !registeredPaths.has(destEntity.toLowerCase())) {

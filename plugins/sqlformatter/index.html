@@ -69,39 +69,39 @@
       /* 浅色：参照白色 SQL 截图 */
       :root,
       html[data-theme='light'] {
-        --tk-kw: #800000;
-        --tk-tbl: #ff8080;
-        --tk-id: #006464;
-        --tk-str: #008000;
-        --tk-num: #0000ff;
+        --tk-kw: #b03030;
+        --tk-tbl: #1f6fc4;
+        --tk-id: #333a36;
+        --tk-str: #1a8a4a;
+        --tk-num: #0b5fd0;
         --tk-fn: #8e00c6;
-        --tk-cmt: #ff0000;
+        --tk-cmt: #7d827b;
         --tk-pl: #000000;
         --tk-caret: #000000;
       }
       /* 深色 / One Dark：参照黑色 SQL 截图 */
       html[data-theme='dark'],
       html[data-theme='onedark'] {
-        --tk-kw: #739eca;
-        --tk-tbl: #ff8080;
-        --tk-id: #00b8b8;
-        --tk-str: #cac580;
-        --tk-num: #00ff40;
-        --tk-fn: #b788d3;
-        --tk-cmt: #ff0000;
+        --tk-kw: #ff7b72;
+        --tk-tbl: #79c0ff;
+        --tk-id: #d5dae0;
+        --tk-str: #a5d6a0;
+        --tk-num: #d2a8ff;
+        --tk-fn: #ffb86b;
+        --tk-cmt: #8b949e;
         --tk-pl: #c8c8c8;
         --tk-caret: #c8c8c8;
       }
       /* 跟随系统：自动匹配深浅 */
       @media (prefers-color-scheme: dark) {
         :root:not([data-theme]) {
-          --tk-kw: #739eca;
-          --tk-tbl: #ff8080;
-          --tk-id: #00b8b8;
-          --tk-str: #cac580;
-          --tk-num: #00ff40;
-          --tk-fn: #b788d3;
-          --tk-cmt: #ff0000;
+          --tk-kw: #ff7b72;
+          --tk-tbl: #79c0ff;
+          --tk-id: #d5dae0;
+          --tk-str: #a5d6a0;
+          --tk-num: #d2a8ff;
+          --tk-fn: #ffb86b;
+          --tk-cmt: #8b949e;
           --tk-pl: #c8c8c8;
           --tk-caret: #c8c8c8;
         }
@@ -247,12 +247,21 @@
       .modal-card.modal-narrow {
         max-width: 640px;
       }
+      /* 3.2.45：弹窗标题栏吸顶。弹窗内容滚动后标题与 ✕ 仍固定可见可点。
+         sticky 的 top 相对滚动容器内容区计算，这里用 -18px 抵消 .modal-card 的 padding-top，
+         配合同值负 margin 让标题条贴住弹窗顶端、不留缝 */
       .modal-head {
+        position: sticky;
+        top: -18px;
+        z-index: 3;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        margin-bottom: 10px;
+        margin: -18px -20px 10px;
+        padding: 14px 20px 10px;
+        background: var(--surface-strong, #fff);
+        border-bottom: 1px solid var(--line);
       }
       .modal-head h2 {
         margin: 0;
@@ -390,8 +399,10 @@
         box-sizing: border-box;
         resize: vertical;
       }
+      /* 3.2.45：二级弹窗（编辑模板）必须压在基础弹窗（模板）之上，
+         原 z-index: 60 低于 .modal-overlay 的 1000，导致编辑弹窗被压在下面、内容点不到 */
       .modal-overlay-top {
-        z-index: 60;
+        z-index: 1200;
       }
       .field-row {
         display: flex;
@@ -416,13 +427,20 @@
         padding: 5px 8px;
         box-sizing: border-box;
       }
+      /* 3.2.45：引擎状态 / 测试结果改用卡片底 + 左侧语义强调条，
+         不再用灰底 + 整块深绿字（对比度差、观感刺眼） */
       .engine-status {
-        font-size: 13px;
+        font-size: 12.5px;
         line-height: 1.7;
-        padding: 10px 12px;
+        padding: 9px 12px;
         border-radius: 8px;
-        background: var(--muted, rgba(128, 128, 128, 0.12));
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--tone, var(--accent));
+        background: var(--surface-strong, #fff);
+        color: var(--ink);
         white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: normal;
         margin-bottom: 8px;
       }
       .row {
@@ -450,34 +468,165 @@
       .test-output {
         font-family: ui-monospace, Consolas, 'Courier New', monospace;
         font-size: 12px;
-        line-height: 1.5;
+        line-height: 1.55;
         white-space: pre-wrap;
-        background: var(--muted, rgba(128, 128, 128, 0.12));
+        word-break: break-word;
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--tone, var(--accent));
         border-radius: 8px;
         padding: 8px 10px;
         max-height: 200px;
         overflow: auto;
         margin: 0 0 8px;
+        background: var(--surface-strong, #fff);
+        color: var(--ink);
+      }
+      /* 状态语义只落在左侧强调条与状态标签上，正文保持正文色 */
+      .engine-status.tone-ok,
+      .test-output.tone-ok {
+        --tone: var(--success);
+      }
+      .engine-status.tone-fail,
+      .test-output.tone-fail {
+        --tone: var(--danger);
+      }
+      .engine-badge {
+        display: inline-block;
+        font-size: 11px;
+        line-height: 1;
+        padding: 3px 7px;
+        border-radius: 999px;
+        border: 1px solid currentColor;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .engine-status-head {
+        margin: 0 0 4px;
+      }
+      .row + .engine-status-head {
+        margin-top: 8px;
+      }
+      .engine-badge.tone-ok {
+        color: var(--success);
+      }
+      .engine-badge.tone-fail {
+        color: var(--danger);
+      } /* ===== 3.2.45：SQL 编辑器配色面板 ===== */
+      .color-card {
+        max-width: 720px;
+      }
+      .color-tabs {
+        display: inline-flex;
+        gap: 6px;
+        padding: 3px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        margin: 2px 0 6px;
+      }
+      .color-tab {
+        border: none;
+        background: transparent;
+        color: inherit;
+        font-size: 12px;
+        padding: 5px 16px;
+        border-radius: 999px;
+        cursor: pointer;
+        opacity: 0.75;
+      }
+      .color-tab.is-active {
+        background: var(--accent-soft, rgba(21, 111, 91, 0.12));
+        color: var(--accent);
+        opacity: 1;
+        font-weight: 600;
+      }
+      .color-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        margin: 10px 0;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+      }
+      .color-row {
+        display: grid;
+        grid-template-columns: 118px 1fr 46px 96px;
+        gap: 10px;
+        align-items: center;
+        font-size: 12px;
+      }
+      .color-name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        opacity: 0.9;
+        white-space: nowrap;
+      }
+      .color-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex: 0 0 auto;
+      }
+      .color-sample {
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .color-row input[type='color'] {
+        width: 44px;
+        height: 26px;
+        padding: 2px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: transparent;
+        cursor: pointer;
+        box-sizing: border-box;
+      }
+      .color-row input[type='text'] {
+        width: 100%;
+        height: 26px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        font-size: 12px;
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+        padding: 0 6px;
+        box-sizing: border-box;
       }
       .action-buttons {
         display: flex;
         gap: 8px;
         margin-left: 8px;
       }
-      /* ===== 规则三栏布局 ===== */
+      /* ===== 规则三栏布局（3.2.45：三栏统一为「定高表头 + 内容框」，顶边与底边对齐） ===== */
       .rule-layout {
         display: flex;
+        align-items: stretch;
         gap: 12px;
-        min-height: 460px;
+        height: clamp(280px, 46vh, 460px);
+      }
+      .rule-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+      }
+      .rule-col-left {
+        flex: 0 0 300px;
       }
       .rule-left {
-        flex: 0 0 300px;
+        flex: 1;
         overflow: auto;
         border: 1px solid var(--line);
         border-radius: 10px;
         padding: 10px 12px;
         box-sizing: border-box;
-        max-height: 60vh;
+        min-height: 0;
       }
       .rule-left .rule-group-title {
         font-size: 12px;
@@ -490,19 +639,22 @@
       }
       .rule-left label {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 8px;
         font-size: 12px;
+        line-height: 1.5;
         padding: 3px 0;
         cursor: pointer;
         user-select: none;
-        white-space: nowrap;
+        white-space: normal;
+        word-break: break-word;
       }
       .rule-left input[type='checkbox'] {
         accent-color: var(--accent);
         width: 13px;
         height: 13px;
         flex: 0 0 auto;
+        margin: 2px 0 0;
       }
       .rule-mid,
       .rule-right {
@@ -511,13 +663,19 @@
         flex-direction: column;
         min-width: 0;
       }
+      /* 三栏共用同一高度的表头，保证三个框的顶边完全对齐 */
       .rule-head {
+        height: 20px;
+        line-height: 20px;
         font-size: 12px;
         opacity: 0.7;
         margin-bottom: 6px;
         display: flex;
+        align-items: center;
         justify-content: space-between;
         gap: 8px;
+        white-space: nowrap;
+        flex: 0 0 auto;
       }
       .rule-mid textarea,
       .rule-right textarea {
@@ -548,10 +706,11 @@
         padding: 12px 14px;
         box-sizing: border-box;
       }
+      /* 3.2.45：参数区加宽列宽并统一控件高度，避免标签被省略号截断 */
       .rule-params .params-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 10px 16px;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 8px 18px;
       }
       .rule-params .param-item {
         display: flex;
@@ -567,17 +726,19 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        line-height: 28px;
       }
       .rule-params .param-item input[type='number'],
       .rule-params .param-item select {
         flex: 0 0 auto;
-        width: 170px;
+        width: 168px;
+        height: 28px;
         border: 1px solid var(--line);
         border-radius: 8px;
         background: transparent;
         color: inherit;
         font-size: 12px;
-        padding: 5px 8px;
+        padding: 0 8px;
         box-sizing: border-box;
         font-family: ui-monospace, Consolas, 'Courier New', monospace;
       }
@@ -737,6 +898,14 @@
           >
             模板
           </button>
+          <button
+            id="colorButton"
+            class="button ghost"
+            type="button"
+            title="SQL 编辑器配色：浅色 / 深色两套，按 token 分类取色"
+          >
+            配色
+          </button>
           <button id="pasteButton" class="button ghost" type="button" title="从剪贴板粘贴">
             粘贴
           </button>
@@ -838,10 +1007,16 @@
         </div>
         <div class="config-section">
           <h3>引擎状态</h3>
+          <div class="engine-status-head">
+            <span id="engineStatusBadge" class="engine-badge">检测中</span>
+          </div>
           <div id="engineStatus" class="engine-status">检测中…</div>
           <div class="row">
             <button id="testEngineButton" class="button ghost" type="button">测试引擎</button>
             <span class="hint">用一段样例 SQL 实跑引擎，展示 Java / jar / 配置链路诊断。</span>
+          </div>
+          <div class="engine-status-head">
+            <span id="testOutputBadge" class="engine-badge" hidden></span>
           </div>
           <pre id="testOutput" class="test-output" hidden></pre>
         </div>
@@ -882,11 +1057,17 @@
         <div class="config-section">
           <h3>格式化规则</h3>
           <span class="hint"
-            >左侧勾选规则（完整列出，可上下左右滚动），中间编辑 SQL 范本，右侧实时预览 shenlq
-            引擎格式化效果；改动即保存生效。</span
+            >左侧勾选规则（完整列出，可上下滚动，表头显示已勾选数量），中间编辑 SQL
+            范本，右侧实时预览 shenlq 引擎格式化效果；改动即保存生效。</span
           >
           <div class="rule-layout">
-            <div class="rule-left" id="ruleCheckboxes"></div>
+            <div class="rule-col rule-col-left">
+              <div class="rule-head">
+                <span>规则（勾选启用）</span>
+                <span id="ruleCheckedCount" class="hint"></span>
+              </div>
+              <div class="rule-left" id="ruleCheckboxes"></div>
+            </div>
             <div class="rule-mid">
               <div class="rule-head"><span>SQL 范本</span></div>
               <textarea id="cfgSampleInput" spellcheck="false" aria-label="SQL 范本"></textarea>
@@ -1087,6 +1268,48 @@
       </div>
     </div>
 
+    <!-- 3.2.45：SQL 编辑器配色（浅色 / 深色两套 token 配色 + 取色器） -->
+    <div id="colorModal" class="modal-overlay" hidden>
+      <div
+        class="modal-card modal-narrow color-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label="SQL 编辑器配色"
+      >
+        <div class="modal-head">
+          <h2>SQL 编辑器配色</h2>
+          <button
+            id="colorModalCloseButton"
+            class="modal-close"
+            type="button"
+            title="关闭"
+            aria-label="关闭"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="config-section">
+          <h3>配色模式</h3>
+          <div class="color-tabs" role="tablist">
+            <button class="color-tab" type="button" data-mode="light" role="tab">浅色</button>
+            <button class="color-tab" type="button" data-mode="dark" role="tab">深色</button>
+          </div>
+          <span id="colorModeHint" class="hint"></span>
+          <div class="color-grid" id="colorGrid"></div>
+          <div class="row">
+            <button id="colorSaveButton" class="button primary" type="button">保存并应用</button>
+            <button id="colorResetButton" class="button ghost" type="button">恢复默认</button>
+            <span id="colorStatus" class="hint"></span>
+          </div>
+          <span class="hint"
+            >只作用于 SQL 编辑器（原始 SQL
+            与格式化结果）的语法着色；界面整体深浅仍由顶部「主题」控制。「深色」配色在 深色 / One
+            Dark / 跟随系统（系统为深色）三种情况下生效。</span
+          >
+        </div>
+      </div>
+    </div>
+
     <script>
       ;(() => {
         const $ = (id) => document.getElementById(id)
@@ -1103,6 +1326,8 @@
           try {
             localStorage.setItem(THEME_KEY, value)
           } catch (e) {}
+          // 3.2.45：主题变了要按新的深浅模式重新套用自定义 token 配色
+          applyTokenColors()
           rerenderAllHl()
         }
 
@@ -1230,11 +1455,275 @@
           renderHl($('outputHl'), $('outputSql'), brkMarks)
         }
 
+        /* ================= 3.2.45 SQL 编辑器配色（浅色 / 深色两套 token 配色 + 取色器） ================= */
+        const TOKEN_STORE_KEY = 'sqlTokenColors'
+        const TOKEN_SPECS = [
+          { key: 'kw', label: '关键字', sample: 'SELECT' },
+          { key: 'tbl', label: '表名', sample: 'tab1' },
+          { key: 'id', label: '字段 / 标识符', sample: 'column1' },
+          { key: 'str', label: '字符串', sample: "'abc'" },
+          { key: 'num', label: '数字', sample: '1.5' },
+          { key: 'fn', label: '函数', sample: 'count()' },
+          { key: 'cmt', label: '注释', sample: '-- 注释' }
+        ]
+        /* 默认值与 <style> 里的 --tk-* 声明保持一致，未自定义时直接走 CSS */
+        const TOKEN_DEFAULTS = {
+          light: {
+            kw: '#b03030',
+            tbl: '#1f6fc4',
+            id: '#333a36',
+            str: '#1a8a4a',
+            num: '#0b5fd0',
+            fn: '#8e00c6',
+            cmt: '#7d827b'
+          },
+          dark: {
+            kw: '#ff7b72',
+            tbl: '#79c0ff',
+            id: '#d5dae0',
+            str: '#a5d6a0',
+            num: '#d2a8ff',
+            fn: '#ffb86b',
+            cmt: '#8b949e'
+          }
+        }
+        const HEX_RE = /^#[0-9a-fA-F]{6}$/
+        let tokenColors = {
+          light: Object.assign({}, TOKEN_DEFAULTS.light),
+          dark: Object.assign({}, TOKEN_DEFAULTS.dark)
+        }
+        let colorEditMode = 'light'
+
+        function normalizeHex(value) {
+          const v = String(value || '').trim()
+          return HEX_RE.test(v) ? v.toLowerCase() : null
+        }
+
+        /** 当前主题实际生效的是浅色还是深色配色（auto 时看系统） */
+        function effectiveColorMode() {
+          const theme = document.documentElement.dataset.theme
+          if (theme === 'light') return 'light'
+          if (theme === 'dark' || theme === 'onedark') return 'dark'
+          try {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          } catch (e) {
+            return 'dark'
+          }
+        }
+
+        /** 把当前模式的自定义色写到 html 内联变量，覆盖 CSS 主题默认值 */
+        function applyTokenColors() {
+          const root = document.documentElement
+          const mode = effectiveColorMode()
+          const pal = tokenColors[mode] || TOKEN_DEFAULTS[mode]
+          const base = TOKEN_DEFAULTS[mode]
+          for (const spec of TOKEN_SPECS) {
+            const v = normalizeHex(pal[spec.key])
+            if (v && v !== base[spec.key]) root.style.setProperty('--tk-' + spec.key, v)
+            else root.style.removeProperty('--tk-' + spec.key)
+          }
+        }
+
+        function loadTokenColors() {
+          let saved = null
+          try {
+            const b = window.sqlFormatterBridge
+            if (b && typeof b.readSettings === 'function') saved = b.readSettings()[TOKEN_STORE_KEY]
+          } catch (e) {}
+          for (const mode of ['light', 'dark']) {
+            tokenColors[mode] = Object.assign({}, TOKEN_DEFAULTS[mode])
+            const src = saved && typeof saved === 'object' ? saved[mode] : null
+            if (!src || typeof src !== 'object') continue
+            for (const spec of TOKEN_SPECS) {
+              const v = normalizeHex(src[spec.key])
+              if (v) tokenColors[mode][spec.key] = v
+            }
+          }
+        }
+
+        function saveTokenColors() {
+          try {
+            const b = window.sqlFormatterBridge
+            if (!b || typeof b.writeSettings !== 'function') return false
+            const settings = b.readSettings() || {}
+            settings[TOKEN_STORE_KEY] = {
+              light: Object.assign({}, tokenColors.light),
+              dark: Object.assign({}, tokenColors.dark)
+            }
+            return !!b.writeSettings(settings)
+          } catch (e) {
+            return false
+          }
+        }
+
+        function paintColorRow(key) {
+          const val =
+            normalizeHex((tokenColors[colorEditMode] || {})[key]) ||
+            TOKEN_DEFAULTS[colorEditMode][key]
+          const swatch = document.querySelector('#colorGrid [data-swatch="' + key + '"]')
+          const hex = document.querySelector('#colorGrid [data-hex="' + key + '"]')
+          const sample = document.querySelector('#colorGrid [data-sample="' + key + '"]')
+          const dot = document.querySelector('#colorGrid [data-dot="' + key + '"]')
+          if (swatch && swatch.value.toLowerCase() !== val) swatch.value = val
+          if (hex) hex.value = val
+          if (sample) sample.style.color = val
+          if (dot) dot.style.background = val
+        }
+
+        function renderColorGrid() {
+          const grid = $('colorGrid')
+          if (!grid) return
+          grid.innerHTML = ''
+          for (const spec of TOKEN_SPECS) {
+            const row = document.createElement('div')
+            row.className = 'color-row'
+
+            const name = document.createElement('span')
+            name.className = 'color-name'
+            const dot = document.createElement('span')
+            dot.className = 'color-dot'
+            dot.dataset.dot = spec.key
+            name.appendChild(dot)
+            name.appendChild(document.createTextNode(spec.label))
+
+            const sample = document.createElement('span')
+            sample.className = 'color-sample'
+            sample.dataset.sample = spec.key
+            sample.textContent = spec.sample
+
+            const swatch = document.createElement('input')
+            swatch.type = 'color'
+            swatch.dataset.swatch = spec.key
+            swatch.setAttribute('aria-label', spec.label + '颜色')
+
+            const hex = document.createElement('input')
+            hex.type = 'text'
+            hex.className = 'color-hex'
+            hex.dataset.hex = spec.key
+            hex.spellcheck = false
+            hex.maxLength = 7
+            hex.setAttribute('aria-label', spec.label + '色值')
+
+            swatch.addEventListener('input', () => setTokenColor(spec.key, swatch.value))
+            hex.addEventListener('change', () => {
+              const v = normalizeHex(hex.value)
+              if (!v) {
+                setStatus($('colorStatus'), '色值格式应为 #RRGGBB', false)
+                paintColorRow(spec.key)
+                return
+              }
+              setTokenColor(spec.key, v)
+            })
+
+            row.appendChild(name)
+            row.appendChild(sample)
+            row.appendChild(swatch)
+            row.appendChild(hex)
+            grid.appendChild(row)
+          }
+          for (const spec of TOKEN_SPECS) paintColorRow(spec.key)
+        }
+
+        function setTokenColor(key, value) {
+          const v = normalizeHex(value)
+          if (!v) return
+          tokenColors[colorEditMode][key] = v
+          paintColorRow(key)
+          applyTokenColors()
+          rerenderAllHl()
+          setStatus($('colorStatus'), '未保存，点「保存并应用」写入配置', null)
+        }
+
+        function setColorEditMode(mode) {
+          colorEditMode = mode === 'dark' ? 'dark' : 'light'
+          for (const tab of document.querySelectorAll('#colorModal .color-tab')) {
+            const on = tab.dataset.mode === colorEditMode
+            tab.classList.toggle('is-active', on)
+            tab.setAttribute('aria-selected', on ? 'true' : 'false')
+          }
+          const hint = $('colorModeHint')
+          if (hint) {
+            hint.textContent =
+              colorEditMode === 'light'
+                ? '正在编辑「浅色」配色：浅色主题，以及「跟随系统」且系统为浅色时生效。'
+                : '正在编辑「深色」配色：深色 / One Dark，以及「跟随系统」且系统为深色时生效。'
+          }
+          for (const spec of TOKEN_SPECS) paintColorRow(spec.key)
+          setStatus($('colorStatus'), '', null)
+        }
+
+        function openColorUi() {
+          setColorEditMode(effectiveColorMode())
+          setStatus($('colorStatus'), '', null)
+          openModal('colorModal')
+        }
+
+        function bindColorUi() {
+          const btn = $('colorButton')
+          if (btn) btn.addEventListener('click', openColorUi)
+          const closeBtn = $('colorModalCloseButton')
+          if (closeBtn) closeBtn.addEventListener('click', () => closeModal('colorModal'))
+          const modal = $('colorModal')
+          if (modal) {
+            modal.addEventListener('click', (e) => {
+              if (e.target === modal) closeModal('colorModal')
+            })
+          }
+          for (const tab of document.querySelectorAll('#colorModal .color-tab')) {
+            tab.addEventListener('click', () => setColorEditMode(tab.dataset.mode))
+          }
+          const saveBtn = $('colorSaveButton')
+          if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+              const ok = saveTokenColors()
+              applyTokenColors()
+              rerenderAllHl()
+              setStatus($('colorStatus'), ok ? '已保存并应用' : '保存失败（配置目录不可写）', ok)
+            })
+          }
+          const resetBtn = $('colorResetButton')
+          if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+              tokenColors[colorEditMode] = Object.assign({}, TOKEN_DEFAULTS[colorEditMode])
+              for (const spec of TOKEN_SPECS) paintColorRow(spec.key)
+              applyTokenColors()
+              rerenderAllHl()
+              setStatus($('colorStatus'), '已恢复本组默认配色，点「保存并应用」写入配置', null)
+            })
+          }
+          renderColorGrid()
+          try {
+            const mq = window.matchMedia('(prefers-color-scheme: dark)')
+            if (mq && typeof mq.addEventListener === 'function') {
+              mq.addEventListener('change', () => {
+                applyTokenColors()
+                rerenderAllHl()
+              })
+            }
+          } catch (e) {}
+        }
+
         /* ================= 配置弹窗 ================= */
         function setStatus(el, msg, ok) {
           if (!el) return
           el.textContent = msg
           el.style.color = ok === false ? 'var(--danger)' : ok === true ? 'var(--success)' : ''
+        }
+
+        /** 3.2.45：引擎状态/测试结果的语义色只落在左侧强调条与状态标签上，正文保持正文色 */
+        function setEngineTone(statusEl, badgeEl, state, label) {
+          const tone = state === true ? 'ok' : state === false ? 'fail' : ''
+          if (statusEl) {
+            statusEl.style.color = ''
+            statusEl.classList.remove('tone-ok', 'tone-fail')
+            if (tone) statusEl.classList.add('tone-' + tone)
+          }
+          if (badgeEl) {
+            badgeEl.classList.remove('tone-ok', 'tone-fail')
+            if (tone) badgeEl.classList.add('tone-' + tone)
+            badgeEl.hidden = !label
+            badgeEl.textContent = label || ''
+          }
         }
 
         function openModal(id) {
@@ -1254,7 +1743,8 @@
         function loadEngineView() {
           const b = window.sqlFormatterBridge
           if (!b) {
-            setStatus($('engineStatus'), '桥接不可用', false)
+            $('engineStatus').textContent = '桥接不可用'
+            setEngineTone($('engineStatus'), $('engineStatusBadge'), false, '桥接不可用')
             return
           }
           const diag = b.engineProbe()
@@ -1264,10 +1754,17 @@
           )
           lines.push('引擎 jar: ' + (diag.jar || '未找到'))
           if (!diag.java) lines.push('诊断: 未找到 Java，请安装 JDK 8+ 或指定 java 路径')
-          setStatus($('engineStatus'), lines.join('\n'), !!diag.java)
+          $('engineStatus').textContent = lines.join('\n')
+          setEngineTone(
+            $('engineStatus'),
+            $('engineStatusBadge'),
+            !!diag.java,
+            diag.java ? '引擎可用' : '缺少 Java'
+          )
           const settings = b.readSettings()
           $('javaPathInput').value = settings && settings.javaPath ? settings.javaPath : ''
           $('testOutput').hidden = true
+          setEngineTone($('testOutput'), $('testOutputBadge'), null, '')
         }
 
         /* ============ 规则配置器（全量项，与 sqlFormat.cfg 全部配置一一对应） ============ */
@@ -1426,12 +1923,12 @@
           { key: 'ilineLengthWanted', label: '一行多少字符', type: 'number' },
           {
             key: 'inbrCommasWanted',
-            label: '多少个字段，一行多少个","，需在逗号后换行生效',
+            label: '每行最多字段数（普通列表）',
             type: 'number'
           },
           {
             key: 'inbrCommasInListWanted',
-            label: '多少个字段，列表in中一行多少个","，需在逗号后换行生效',
+            label: '每行最多字段数（IN 列表）',
             type: 'number'
           },
           {
@@ -1526,8 +2023,22 @@
             }
           }
           box.addEventListener('change', (e) => {
-            if (e.target && e.target.dataset && e.target.dataset.cfg) schedulePreview()
+            if (e.target && e.target.dataset && e.target.dataset.cfg) {
+              updateCheckedCount()
+              schedulePreview()
+            }
           })
+        }
+
+        function updateCheckedCount() {
+          let checked = 0
+          let total = 0
+          for (const cb of document.querySelectorAll('#ruleCheckboxes input[data-cfg]')) {
+            total += 1
+            if (cb.checked) checked += 1
+          }
+          const countEl = $('ruleCheckedCount')
+          if (countEl) countEl.textContent = checked + ' / ' + total
         }
 
         function buildRuleParams() {
@@ -1568,6 +2079,7 @@
             const m = new RegExp('^' + cb.dataset.cfg + '=(true|false)', 'm').exec(cfgText || '')
             cb.checked = m ? m[1] === 'true' : false
           }
+          updateCheckedCount()
         }
 
         function syncParams(cfgText) {
@@ -1778,6 +2290,7 @@
               lines.push('诊断: ' + diag.error)
             }
             out.textContent = lines.join('\n')
+            setEngineTone(out, $('testOutputBadge'), !!diag.ran, diag.ran ? '执行成功' : '执行失败')
           })
         }
 
@@ -3052,7 +3565,9 @@
         bindTemplateUi()
         bindTemplateTrigger()
 
+        loadTokenColors()
         initTheme()
+        bindColorUi()
         buildRuleCheckboxes()
         buildRuleParams()
         bindButtons()

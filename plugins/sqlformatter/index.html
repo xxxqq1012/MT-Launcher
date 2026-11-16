@@ -128,6 +128,12 @@
         color: var(--tk-cmt);
         font-style: italic;
       }
+      /* ===== 3.2.41：括号匹配高亮（鼠标悬停前括号时点亮成对括号） ===== */
+      .tk-brk {
+        background: rgba(255, 196, 0, 0.34);
+        box-shadow: 0 0 0 1px rgba(255, 196, 0, 0.8);
+        border-radius: 2px;
+      }
       /* ===== 最大化布局：编辑区撑满窗口，底部状态栏留一行 ===== */
       .app-shell {
         height: 100vh;
@@ -279,6 +285,73 @@
         opacity: 0.7;
         margin: 4px 0;
         display: block;
+      }
+      /* ===== 3.2.41：宏配置表 ===== */
+      .macro-table-wrap {
+        max-height: 46vh;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin-top: 8px;
+      }
+      .macro-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      .macro-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--surface-strong, #fff);
+        text-align: left;
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--line);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .macro-table tbody td {
+        padding: 3px 6px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: middle;
+      }
+      .macro-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+      .macro-table tbody input[type='text'],
+      .macro-table tbody select {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        font-size: 12px;
+        padding: 4px 6px;
+        box-sizing: border-box;
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+      }
+      .macro-table tbody input[type='checkbox'] {
+        margin: 0;
+      }
+      .macro-table .col-on {
+        width: 44px;
+        text-align: center;
+      }
+      .macro-table .col-type {
+        width: 92px;
+      }
+      .macro-table .col-del {
+        width: 56px;
+        text-align: center;
+      }
+      .macro-del {
+        border: 1px solid var(--line);
+        background: transparent;
+        color: inherit;
+        border-radius: 6px;
+        cursor: pointer;
+        padding: 2px 8px;
+        font-size: 12px;
       }
       .engine-status {
         font-size: 13px;
@@ -585,6 +658,14 @@
           <button id="settingsButton" class="button ghost" type="button" title="SQL 格式化规则配置">
             规则
           </button>
+          <button
+            id="macroButton"
+            class="button ghost"
+            type="button"
+            title="特殊函数宏替换配置（Oracle 函数 → 宏写法）"
+          >
+            宏配置
+          </button>
           <button id="pasteButton" class="button ghost" type="button" title="从剪贴板粘贴">
             粘贴
           </button>
@@ -777,6 +858,59 @@
       </div>
     </div>
 
+    <!-- 3.2.41：宏配置弹窗（Oracle 特殊函数 → 宏写法） -->
+    <div id="macroModal" class="modal-overlay" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-label="宏配置">
+        <div class="modal-head">
+          <h2>宏配置</h2>
+          <button
+            id="macroModalCloseButton"
+            class="modal-close"
+            type="button"
+            title="关闭"
+            aria-label="关闭"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="config-section">
+          <h3>特殊宏替换规则</h3>
+          <span class="hint"
+            >规则取自《数据库【重要】》第 15 条：禁止直接使用 Oracle 特殊函数，须改用宏写法，例如
+            nvl(col3,0) →
+            %SQLISNULL$2(col3,0)。勾选启用后，格式化结果会自动按此表转换（只改结果面板，不改原始
+            SQL）；已在输入里的 %宏 会原样保留。类型为「正则」时，宏写法可用 {{1}}～{{9}}
+            引用捕获组。</span
+          >
+          <label class="checkbox-label">
+            <input id="macroEnabledInput" type="checkbox" />
+            <span>启用宏替换</span>
+          </label>
+          <div class="macro-table-wrap">
+            <table class="macro-table">
+              <thead>
+                <tr>
+                  <th class="col-on">启用</th>
+                  <th class="col-type">类型</th>
+                  <th>匹配（函数名 / 关键字 / 正则）</th>
+                  <th>宏写法（不含前导 %）</th>
+                  <th>说明</th>
+                  <th class="col-del">操作</th>
+                </tr>
+              </thead>
+              <tbody id="macroRows"></tbody>
+            </table>
+          </div>
+          <div class="row">
+            <button id="macroAddButton" class="button ghost" type="button">新增规则</button>
+            <button id="macroResetButton" class="button ghost" type="button">恢复默认</button>
+            <button id="macroSaveButton" class="button primary" type="button">保存并应用</button>
+            <span id="macroStatus" class="hint"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
       ;(() => {
         const $ = (id) => document.getElementById(id)
@@ -831,15 +965,58 @@
           return set
         }
 
-        function highlightSql(text) {
+        function highlightSql(text, marks) {
           const src = String(text || '')
           const tables = collectTableNames(src)
+          const markSet =
+            marks && typeof marks.has === 'function'
+              ? marks
+              : Array.isArray(marks) && marks.length
+                ? new Set(marks)
+                : null
+          const hasMarks = !!markSet && markSet.size > 0
           let out = ''
           let last = 0
           let m
+
+          const push = (chunk, base, cls) => {
+            if (!chunk) return
+            if (!hasMarks) {
+              out += cls
+                ? '<span class="' + cls + '">' + escapeHtml(chunk) + '</span>'
+                : escapeHtml(chunk)
+              return
+            }
+            let buf = ''
+            for (let i = 0; i < chunk.length; i++) {
+              const idx = base + i
+              if (markSet.has(idx)) {
+                if (buf) {
+                  out += cls
+                    ? '<span class="' + cls + '">' + escapeHtml(buf) + '</span>'
+                    : escapeHtml(buf)
+                  buf = ''
+                }
+                out +=
+                  '<span class="' +
+                  (cls ? cls + ' tk-brk' : 'tk-brk') +
+                  '">' +
+                  escapeHtml(chunk[i]) +
+                  '</span>'
+              } else {
+                buf += chunk[i]
+              }
+            }
+            if (buf) {
+              out += cls
+                ? '<span class="' + cls + '">' + escapeHtml(buf) + '</span>'
+                : escapeHtml(buf)
+            }
+          }
+
           TOKEN_RE.lastIndex = 0
           while ((m = TOKEN_RE.exec(src)) !== null) {
-            if (m.index > last) out += escapeHtml(src.slice(last, m.index))
+            if (m.index > last) push(src.slice(last, m.index), last, null)
             let cls
             if (m[1]) cls = 'tk-str'
             else if (m[2]) cls = 'tk-cmt'
@@ -848,16 +1025,16 @@
             else if (KW_SET.has(m[0].toUpperCase())) cls = 'tk-kw'
             else if (tables.has(m[0].toLowerCase())) cls = 'tk-tbl'
             else cls = 'tk-id'
-            out += '<span class="' + cls + '">' + escapeHtml(m[0]) + '</span>'
+            push(m[0], m.index, cls)
             last = m.index + m[0].length
           }
-          if (last < src.length) out += escapeHtml(src.slice(last))
+          if (last < src.length) push(src.slice(last), last, null)
           return out
         }
 
-        function renderHl(hlEl, textarea) {
+        function renderHl(hlEl, textarea, marks) {
           if (!hlEl || !textarea) return
-          hlEl.innerHTML = highlightSql(textarea.value) + '\u200b'
+          hlEl.innerHTML = highlightSql(textarea.value, marks) + '\u200b'
           hlEl.scrollTop = textarea.scrollTop
           hlEl.scrollLeft = textarea.scrollLeft
         }
@@ -874,7 +1051,7 @@
 
         function rerenderAllHl() {
           renderHl($('inputHl'), $('inputSql'))
-          renderHl($('outputHl'), $('outputSql'))
+          renderHl($('outputHl'), $('outputSql'), brkMarks)
         }
 
         /* ================= 配置弹窗 ================= */
@@ -1428,6 +1605,738 @@
           })
         }
 
+        /* ===================== 3.2.41 括号匹配（格式化结果区） ===================== */
+        let brkPairs = new Map()
+        let brkPairsFor = ''
+        let brkMarks = []
+        let brkHoverKey = ''
+        let brkNodes = null
+        let brkNodesFor = null
+        let brkRaf = 0
+
+        function isBracketOpen(c) {
+          return c === '(' || c === '[' || c === '{'
+        }
+
+        function isBracketClose(c) {
+          return c === ')' || c === ']' || c === '}'
+        }
+
+        /** 跳过引号包裹的字符串/标识符，返回结束位置（不含右引号后一位） */
+        function skipQuoted(text, i) {
+          const q = text[i]
+          let j = i + 1
+          while (j < text.length) {
+            const c = text[j]
+            if (c === '\\') {
+              j += 2
+              continue
+            }
+            if (c === q) {
+              if (text[j + 1] === q) {
+                j += 2
+                continue
+              }
+              return j + 1
+            }
+            j += 1
+          }
+          return text.length
+        }
+
+        /** 括号配对表（跳过字符串与注释），返回双向 Map：开→闭、闭→开 */
+        function buildBracketPairs(text) {
+          const map = new Map()
+          const stack = []
+          const partner = { ')': '(', ']': '[', '}': '{' }
+          let i = 0
+          while (i < text.length) {
+            const c = text[i]
+            if (c === "'" || c === '"') {
+              i = skipQuoted(text, i)
+              continue
+            }
+            if (c === '-' && text[i + 1] === '-') {
+              const j = text.indexOf('\n', i)
+              i = j < 0 ? text.length : j
+              continue
+            }
+            if (c === '/' && text[i + 1] === '*') {
+              const j = text.indexOf('*/', i + 2)
+              i = j < 0 ? text.length : j + 2
+              continue
+            }
+            if (isBracketOpen(c)) {
+              stack.push(i)
+              i += 1
+              continue
+            }
+            if (isBracketClose(c)) {
+              for (let k = stack.length - 1; k >= 0; k--) {
+                if (text[stack[k]] === partner[c]) {
+                  map.set(stack[k], i)
+                  map.set(i, stack[k])
+                  stack.length = k
+                  break
+                }
+              }
+            }
+            i += 1
+          }
+          return map
+        }
+
+        /** 高亮层文本节点索引（用于把鼠标坐标换算成字符下标） */
+        function hlTextNodes(hlEl) {
+          if (hlNodesCache.el === hlEl && hlNodesCache.nodes) return hlNodesCache.nodes
+          const nodes = []
+          const walker = document.createTreeWalker(hlEl, NodeFilter.SHOW_TEXT, null)
+          let pos = 0
+          let node
+          while ((node = walker.nextNode())) {
+            const len = node.nodeValue ? node.nodeValue.length : 0
+            if (len) {
+              nodes.push({ node: node, start: pos, len: len })
+              pos += len
+            }
+          }
+          hlNodesCache.el = hlEl
+          hlNodesCache.nodes = nodes
+          return nodes
+        }
+        const hlNodesCache = { el: null, nodes: null, total: 0 }
+
+        /** 坐标 → 字符下标（二分 + 邻近校正，基于真实排版，兼容自动换行） */
+        function pointToTextIndex(hlEl, x, y) {
+          const nodes = hlTextNodes(hlEl)
+          if (!nodes.length) return -1
+          const total = nodes[nodes.length - 1].start + nodes[nodes.length - 1].len
+
+          const entryAt = (idx) => {
+            let lo = 0
+            let hi = nodes.length - 1
+            while (lo <= hi) {
+              const mid = (lo + hi) >> 1
+              if (idx < nodes[mid].start) hi = mid - 1
+              else if (idx >= nodes[mid].start + nodes[mid].len) lo = mid + 1
+              else return nodes[mid]
+            }
+            return nodes[0]
+          }
+
+          const rectAt = (idx) => {
+            const ent = entryAt(idx)
+            if (!ent) return null
+            const off = Math.max(0, Math.min(ent.len - 1, idx - ent.start))
+            const r = document.createRange()
+            r.setStart(ent.node, off)
+            r.setEnd(ent.node, off + 1)
+            const rect = r.getBoundingClientRect()
+            if (rect && (rect.width > 0 || rect.height > 0)) return rect
+            const rc = document.createRange()
+            rc.setStart(ent.node, off)
+            rc.setEnd(ent.node, off)
+            return rc.getBoundingClientRect()
+          }
+
+          const dist = (rect) => {
+            if (!rect) return Infinity
+            const dx = Math.max(rect.left - x, 0, x - rect.right)
+            const dy = Math.max(rect.top - y, 0, y - rect.bottom)
+            return dx * dx + dy * dy
+          }
+
+          let lo = 0
+          let hi = total - 1
+          let best = 0
+          let bestD = Infinity
+          while (lo <= hi) {
+            const mid = (lo + hi) >> 1
+            const rect = rectAt(mid)
+            if (!rect) break
+            const d = dist(rect)
+            if (d < bestD) {
+              bestD = d
+              best = mid
+            }
+            if (d === 0) return mid
+            if (y < rect.top) hi = mid - 1
+            else if (y > rect.bottom) lo = mid + 1
+            else if (x < rect.left) hi = mid - 1
+            else lo = mid + 1
+          }
+          // 邻近校正：换行/空白字符的矩形可能为零宽，比较前后几个字符
+          for (let k = 1; k <= 3; k++) {
+            for (const cand of [best - k, best + k]) {
+              if (cand < 0 || cand >= total) continue
+              const d = dist(rectAt(cand))
+              if (d < bestD) {
+                bestD = d
+                best = cand
+              }
+            }
+          }
+          return best
+        }
+
+        function renderOutHl() {
+          hlNodesCache.el = null
+          hlNodesCache.nodes = null
+          renderHl($('outputHl'), $('outputSql'), brkMarks)
+        }
+
+        function handleOutputHover(x, y) {
+          const ta = $('outputSql')
+          const hl = $('outputHl')
+          if (!ta || !hl) return
+          const text = ta.value
+          if (!text) return
+          if (text !== brkPairsFor) {
+            brkPairs = buildBracketPairs(text)
+            brkPairsFor = text
+          }
+          const idx = pointToTextIndex(hl, x, y)
+          if (idx < 0) return
+          let hit = -1
+          for (let d = 0; d <= 2 && hit < 0; d++) {
+            for (const cand of [idx - d, idx + d]) {
+              if (cand < 0 || cand >= text.length) continue
+              if (isBracketOpen(text[cand]) || isBracketClose(text[cand])) {
+                hit = cand
+                break
+              }
+            }
+          }
+          const pair = hit >= 0 ? brkPairs.get(hit) : undefined
+          const key = hit + ':' + (pair === undefined ? -1 : pair)
+          if (key === brkHoverKey) return
+          brkHoverKey = key
+          brkMarks = hit >= 0 && pair !== undefined ? [hit, pair] : []
+          renderOutHl()
+        }
+
+        function bindBracketMatch() {
+          const ta = $('outputSql')
+          if (!ta) return
+          ta.addEventListener('mousemove', (e) => {
+            const x = e.clientX
+            const y = e.clientY
+            if (brkRaf) cancelAnimationFrame(brkRaf)
+            brkRaf = requestAnimationFrame(() => {
+              brkRaf = 0
+              handleOutputHover(x, y)
+            })
+          })
+          ta.addEventListener('mouseleave', () => {
+            if (brkRaf) {
+              cancelAnimationFrame(brkRaf)
+              brkRaf = 0
+            }
+            if (brkMarks.length || brkHoverKey) {
+              brkMarks = []
+              brkHoverKey = ''
+              renderOutHl()
+            }
+          })
+        }
+
+        /* ===================== 3.2.41 宏配置（Oracle 特殊函数 → 宏写法） ===================== */
+        const MACRO_STORE_KEY = 'sqlMacros'
+        const MACRO_TYPES = ['fn', 'word', 'regex']
+        const IDENT_STICKY = /[A-Za-z_][A-Za-z0-9_$]*/y
+
+        const MACRO_DEFAULT_RULES = [
+          {
+            enabled: true,
+            type: 'regex',
+            match: "to_number\\s*\\(\\s*to_char\\s*\\(\\s*sysdate\\s*,\\s*'yyyy'\\s*\\)\\s*\\)",
+            macro: 'SQLDATEYEAR$1',
+            note: "获取年份（to_number(to_char(sysdate,'yyyy'))）"
+          },
+          {
+            enabled: true,
+            type: 'regex',
+            match: "to_number\\s*\\(\\s*to_char\\s*\\(\\s*sysdate\\s*,\\s*'mm'\\s*\\)\\s*\\)",
+            macro: 'SQLDATEMONTH$1',
+            note: '获取月份'
+          },
+          {
+            enabled: true,
+            type: 'regex',
+            match: "to_number\\s*\\(\\s*to_char\\s*\\(\\s*sysdate\\s*,\\s*'dd'\\s*\\)\\s*\\)",
+            macro: 'SQLDATEDAY$1',
+            note: '获取日期'
+          },
+          {
+            enabled: true,
+            type: 'regex',
+            match: 'sysdate\\s*-\\s*sysdate',
+            macro: 'SQLDIFFDAYS$2',
+            note: '日期计算（sysdate-sysdate）'
+          },
+          {
+            enabled: true,
+            type: 'regex',
+            match: '([A-Za-z_][\\w$.]*)\\s*\\|\\|\\s*([A-Za-z_][\\w$.]*)',
+            macro: 'SQLSTRCAT$2({{1}},{{2}})',
+            note: '字符串连接 ||'
+          },
+          { enabled: true, type: 'fn', match: 'nvl', macro: 'SQLISNULL$2', note: 'nvl() 判空' },
+          {
+            enabled: true,
+            type: 'fn',
+            match: 'substr',
+            macro: 'SQLSUBSTR',
+            note: 'substr() 截取，文档亦可用 SQLLEFT$2'
+          },
+          { enabled: true, type: 'fn', match: 'length', macro: 'SQLLEN', note: 'length() 长度' },
+          {
+            enabled: true,
+            type: 'fn',
+            match: 'to_date',
+            macro: 'SQLDATE$3',
+            note: 'to_date() 转日期'
+          },
+          {
+            enabled: true,
+            type: 'fn',
+            match: 'to_number',
+            macro: 'SQLTOINT$1',
+            note: 'to_number()，文档亦可用 SQLTONUMERIC$1'
+          },
+          {
+            enabled: true,
+            type: 'fn',
+            match: 'to_char',
+            macro: 'SQLTOSTR$1',
+            note: 'to_char() 转字符'
+          },
+          {
+            enabled: true,
+            type: 'fn',
+            match: 'upper',
+            macro: 'SQLUPPER$1',
+            note: 'upper() 转大写'
+          },
+          {
+            enabled: true,
+            type: 'fn',
+            match: 'lower',
+            macro: 'SQLLOWER$1',
+            note: 'lower() 转小写'
+          },
+          { enabled: true, type: 'fn', match: 'mod', macro: 'SQLMOD$2', note: 'mod() 取余' },
+          { enabled: true, type: 'fn', match: 'floor', macro: 'SQLDIV$2', note: 'floor() 取整' },
+          {
+            enabled: true,
+            type: 'fn',
+            match: 'bitand',
+            macro: 'SQLBITAND$2',
+            note: 'bitand() 位与'
+          },
+          {
+            enabled: true,
+            type: 'word',
+            match: 'sysdate',
+            macro: 'SQLSYSDATE',
+            note: 'sysdate 当前时间'
+          }
+        ]
+
+        let macroState = { enabled: true, rules: [] }
+        let rawOutputText = ''
+        let macroLastCount = 0
+        let macroBound = false
+
+        function cloneMacroRule(rule) {
+          return {
+            enabled: rule.enabled !== false,
+            type: MACRO_TYPES.includes(rule.type) ? rule.type : 'fn',
+            match: String(rule.match || ''),
+            macro: String(rule.macro || ''),
+            note: String(rule.note || '')
+          }
+        }
+
+        function loadMacroState() {
+          let saved = null
+          try {
+            const b = window.sqlFormatterBridge
+            if (b && typeof b.readSettings === 'function') saved = b.readSettings()[MACRO_STORE_KEY]
+          } catch (e) {}
+          if (saved && Array.isArray(saved.rules) && saved.rules.length) {
+            macroState = {
+              enabled: saved.enabled !== false,
+              rules: saved.rules.map(cloneMacroRule)
+            }
+          } else {
+            macroState = { enabled: true, rules: MACRO_DEFAULT_RULES.map(cloneMacroRule) }
+          }
+        }
+
+        function saveMacroState() {
+          try {
+            const b = window.sqlFormatterBridge
+            if (!b || typeof b.writeSettings !== 'function') return false
+            const settings = b.readSettings() || {}
+            settings[MACRO_STORE_KEY] = {
+              enabled: macroState.enabled !== false,
+              rules: macroState.rules.map(cloneMacroRule)
+            }
+            return !!b.writeSettings(settings)
+          } catch (e) {
+            return false
+          }
+        }
+
+        /** 找到 openIdx 处 '(' 对应的 ')'，跳过字符串与注释；找不到返回 -1 */
+        function matchParen(src, openIdx) {
+          let depth = 0
+          let i = openIdx
+          while (i < src.length) {
+            const c = src[i]
+            if (c === "'" || c === '"') {
+              i = skipQuoted(src, i)
+              continue
+            }
+            if (c === '-' && src[i + 1] === '-') {
+              const j = src.indexOf('\n', i)
+              i = j < 0 ? src.length : j
+              continue
+            }
+            if (c === '/' && src[i + 1] === '*') {
+              const j = src.indexOf('*/', i + 2)
+              i = j < 0 ? src.length : j + 2
+              continue
+            }
+            if (c === '(') depth += 1
+            else if (c === ')') {
+              depth -= 1
+              if (depth === 0) return i
+            }
+            i += 1
+          }
+          return -1
+        }
+
+        /** 单条规则在位置 i 的匹配结果 */
+        function tryMacroRule(src, i, item) {
+          const rule = item.rule
+          if (rule.type === 'regex') {
+            if (!item.re) return null
+            item.re.lastIndex = i
+            const m = item.re.exec(src)
+            if (!m || m.index !== i || !m[0]) return null
+            const macro = String(rule.macro || '').replace(/\{\{([1-9])\}\}/g, (s, n) => {
+              const g = m[Number(n)]
+              return g === undefined ? s : g
+            })
+            return { text: '%' + macro, end: i + m[0].length }
+          }
+          IDENT_STICKY.lastIndex = i
+          const m = IDENT_STICKY.exec(src)
+          if (!m) return null
+          const word = m[0]
+          if (word.toLowerCase() !== String(rule.match || '').toLowerCase()) return null
+          let j = i + word.length
+          while (j < src.length && /\s/.test(src[j])) j += 1
+          if (rule.type === 'word') {
+            if (src[j] === '(') return null
+            return { text: '%' + String(rule.macro || ''), end: i + word.length }
+          }
+          if (src[j] !== '(') return null
+          const close = matchParen(src, j)
+          if (close < 0) return null
+          // 参数内部再转换一次，保证嵌套调用（如 nvl(nvl(a,b),c)）也被替换
+          const inner = convertSqlByMacros(src.slice(j + 1, close))
+          return {
+            text: '%' + String(rule.macro || '') + '(' + inner.text + ')',
+            end: close + 1,
+            count: 1 + inner.count
+          }
+        }
+
+        /** 按启用规则转换 SQL（字符串、注释、已有 %宏 原样保留） */
+        function convertSqlByMacros(text) {
+          const src = String(text || '')
+          const rules = (macroState.rules || []).filter(
+            (r) => r && r.enabled !== false && String(r.match || '').trim()
+          )
+          if (!rules.length) return { text: src, count: 0 }
+          const compiled = rules.map((rule) => {
+            let re = null
+            if (rule.type === 'regex') {
+              try {
+                re = new RegExp(rule.match, 'iy')
+              } catch (e) {
+                re = null
+              }
+            }
+            return { rule: rule, re: re }
+          })
+          let out = ''
+          let count = 0
+          let i = 0
+          while (i < src.length) {
+            const c = src[i]
+            if (c === "'" || c === '"') {
+              const j = skipQuoted(src, i)
+              out += src.slice(i, j)
+              i = j
+              continue
+            }
+            if (c === '-' && src[i + 1] === '-') {
+              const j = src.indexOf('\n', i)
+              const e = j < 0 ? src.length : j
+              out += src.slice(i, e)
+              i = e
+              continue
+            }
+            if (c === '/' && src[i + 1] === '*') {
+              const j = src.indexOf('*/', i + 2)
+              const e = j < 0 ? src.length : j + 2
+              out += src.slice(i, e)
+              i = e
+              continue
+            }
+            if (c === '%' && /[A-Za-z_]/.test(src[i + 1] || '')) {
+              let j = i + 1
+              while (j < src.length && /[A-Za-z0-9_$]/.test(src[j])) j += 1
+              if (src[j] === '(') {
+                const close = matchParen(src, j)
+                if (close > 0) {
+                  out += src.slice(i, close + 1)
+                  i = close + 1
+                  continue
+                }
+              }
+              out += src.slice(i, j)
+              i = j
+              continue
+            }
+            let done = false
+            for (const item of compiled) {
+              const hit = tryMacroRule(src, i, item)
+              if (hit) {
+                out += hit.text
+                i = hit.end
+                count += hit.count || 1
+                done = true
+                break
+              }
+            }
+            if (done) continue
+            out += c
+            i += 1
+          }
+          return { text: out, count: count }
+        }
+
+        /** 格式化结果同步入口：记录原始结果 → 宏替换 → 回写结果面板 */
+        function syncMacroOutput(ta) {
+          rawOutputText = ta.value
+          const res = macroState.enabled
+            ? convertSqlByMacros(rawOutputText)
+            : { text: rawOutputText, count: 0 }
+          macroLastCount = res.count
+          if (res.text !== rawOutputText) {
+            ta.value = res.text
+            brkMarks = []
+            brkHoverKey = ''
+          }
+          return ta.value
+        }
+
+        /** 规则变更后基于上一次原始结果重算（不重复套用） */
+        function rerunMacros() {
+          const ta = $('outputSql')
+          if (!ta || !rawOutputText) return
+          const res = macroState.enabled
+            ? convertSqlByMacros(rawOutputText)
+            : { text: rawOutputText, count: 0 }
+          macroLastCount = res.count
+          ta.value = res.text
+          lastOut = res.text
+          brkMarks = []
+          brkHoverKey = ''
+          renderOutHl()
+          const status = $('macroStatus')
+          if (status) {
+            setStatus(status, '当前结果已替换 ' + macroLastCount + ' 处', true)
+          }
+        }
+
+        function macroTypeSelect(value) {
+          const sel = document.createElement('select')
+          for (const t of MACRO_TYPES) {
+            const op = document.createElement('option')
+            op.value = t
+            op.textContent = t === 'fn' ? '函数' : t === 'word' ? '关键字' : '正则'
+            sel.appendChild(op)
+          }
+          sel.value = MACRO_TYPES.includes(value) ? value : 'fn'
+          return sel
+        }
+
+        function renderMacroRows() {
+          const tbody = $('macroRows')
+          if (!tbody) return
+          tbody.innerHTML = ''
+          macroState.rules.forEach((rule, idx) => {
+            const tr = document.createElement('tr')
+            tr.dataset.idx = String(idx)
+
+            const tdOn = document.createElement('td')
+            tdOn.className = 'col-on'
+            const cb = document.createElement('input')
+            cb.type = 'checkbox'
+            cb.checked = rule.enabled !== false
+            cb.title = '启用该条规则'
+            tdOn.appendChild(cb)
+            tr.appendChild(tdOn)
+
+            const tdType = document.createElement('td')
+            tdType.className = 'col-type'
+            tdType.appendChild(macroTypeSelect(rule.type))
+            tr.appendChild(tdType)
+
+            for (const key of ['match', 'macro', 'note']) {
+              const td = document.createElement('td')
+              const input = document.createElement('input')
+              input.type = 'text'
+              input.value = String(rule[key] || '')
+              input.spellcheck = false
+              if (key === 'match') input.title = '函数名 / 关键字 / 正则表达式'
+              if (key === 'macro') input.title = '宏写法，不含前导 %'
+              td.appendChild(input)
+              tr.appendChild(td)
+            }
+
+            const tdDel = document.createElement('td')
+            tdDel.className = 'col-del'
+            const del = document.createElement('button')
+            del.type = 'button'
+            del.className = 'macro-del'
+            del.textContent = '删除'
+            tdDel.appendChild(del)
+            tr.appendChild(tdDel)
+
+            tbody.appendChild(tr)
+          })
+        }
+
+        /** 把表格当前内容读回 macroState */
+        function readMacroRowsFromDom() {
+          const tbody = $('macroRows')
+          if (!tbody) return
+          const rules = []
+          for (const tr of tbody.querySelectorAll('tr')) {
+            const tds = tr.querySelectorAll('td')
+            if (tds.length < 6) continue
+            const cb = tds[0].querySelector('input[type="checkbox"]')
+            const sel = tds[1].querySelector('select')
+            const inputs = [
+              tds[2].querySelector('input'),
+              tds[3].querySelector('input'),
+              tds[4].querySelector('input')
+            ]
+            rules.push({
+              enabled: !!(cb && cb.checked),
+              type: sel ? sel.value : 'fn',
+              match: inputs[0] ? inputs[0].value : '',
+              macro: inputs[1] ? inputs[1].value : '',
+              note: inputs[2] ? inputs[2].value : ''
+            })
+          }
+          macroState.rules = rules
+        }
+
+        function bindMacroUi() {
+          if (macroBound) return
+          macroBound = true
+          const btn = $('macroButton')
+          if (btn) {
+            btn.addEventListener('click', () => {
+              renderMacroRows()
+              const en = $('macroEnabledInput')
+              if (en) en.checked = macroState.enabled !== false
+              setStatus(
+                $('macroStatus'),
+                macroLastCount ? '当前结果已替换 ' + macroLastCount + ' 处' : '',
+                null
+              )
+              openModal('macroModal')
+            })
+          }
+          const closeBtn = $('macroModalCloseButton')
+          if (closeBtn) closeBtn.addEventListener('click', () => closeModal('macroModal'))
+          const modal = $('macroModal')
+          if (modal) {
+            modal.addEventListener('click', (e) => {
+              if (e.target === modal) closeModal('macroModal')
+            })
+          }
+          const tbody = $('macroRows')
+          if (tbody) {
+            tbody.addEventListener('click', (e) => {
+              const t = e.target
+              if (!t || !t.classList || !t.classList.contains('macro-del')) return
+              readMacroRowsFromDom()
+              const tr = t.closest('tr')
+              const idx = tr ? Number(tr.dataset.idx) : -1
+              if (idx < 0 || idx >= macroState.rules.length) return
+              macroState.rules.splice(idx, 1)
+              renderMacroRows()
+            })
+          }
+          const addBtn = $('macroAddButton')
+          if (addBtn) {
+            addBtn.addEventListener('click', () => {
+              readMacroRowsFromDom()
+              macroState.rules.push({
+                enabled: true,
+                type: 'fn',
+                match: '',
+                macro: '',
+                note: ''
+              })
+              renderMacroRows()
+            })
+          }
+          const resetBtn = $('macroResetButton')
+          if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+              macroState = {
+                enabled: true,
+                rules: MACRO_DEFAULT_RULES.map(cloneMacroRule)
+              }
+              const en = $('macroEnabledInput')
+              if (en) en.checked = true
+              renderMacroRows()
+              setStatus($('macroStatus'), '已载入默认规则，点「保存并应用」生效', null)
+            })
+          }
+          const saveBtn = $('macroSaveButton')
+          if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+              readMacroRowsFromDom()
+              const en = $('macroEnabledInput')
+              macroState.enabled = en ? en.checked : true
+              const ok = saveMacroState()
+              if (!ok) {
+                setStatus($('macroStatus'), '保存失败（配置目录不可写）', false)
+                return
+              }
+              rerunMacros()
+              setStatus($('macroStatus'), '已保存并应用', true)
+            })
+          }
+        }
+
+        loadMacroState()
+        bindMacroUi()
+        bindBracketMatch()
+
         initTheme()
         buildRuleCheckboxes()
         buildRuleParams()
@@ -1447,8 +2356,9 @@
           }
           const ota = $('outputSql')
           if (ota && ota.value !== lastOut) {
-            lastOut = ota.value
-            renderHl($('outputHl'), ota)
+            // 3.2.41：格式化结果先按宏配置转换，再交给高亮层
+            lastOut = syncMacroOutput(ota)
+            renderOutHl()
           }
           // bundle 在输出为空时禁用复制按钮，这里保持始终可点
           const cb = $('copyButton')

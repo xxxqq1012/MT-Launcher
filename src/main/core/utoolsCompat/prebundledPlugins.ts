@@ -142,6 +142,60 @@ function syncDirectoryTree(src: string, dest: string): boolean {
   return changed
 }
 
+/** 用户运行时配置：同步 unpacked 侧车时保留下，不用发行包默认值覆盖。 */
+const PRESERVED_RUNTIME_FILES = new Set(['mt-settings.json', 'sqlformat.cfg'])
+
+/**
+ * 同步 asar 的 .unpacked 侧车目录（发行包即权威）。
+ * 覆盖发行包分发的文件、清理已下线文件，但保留用户运行时配置。
+ */
+function syncUnpackedTree(src: string, dest: string): boolean {
+  if (!physicalFs.existsSync(src)) return false
+  physicalFs.mkdirSync(dest, { recursive: true })
+  let changed = false
+  for (const name of physicalFs.readdirSync(src)) {
+    const srcPath = path.join(src, name)
+    const destPath = path.join(dest, name)
+    const st = physicalFs.statSync(srcPath)
+    if (st.isDirectory()) {
+      if (syncUnpackedTree(srcPath, destPath)) changed = true
+      continue
+    }
+    if (PRESERVED_RUNTIME_FILES.has(name.toLowerCase()) && physicalFs.existsSync(destPath)) continue
+    let needCopy = false
+    try {
+      const dst = physicalFs.statSync(destPath)
+      needCopy = !dst.isFile() || fileHash(srcPath) !== fileHash(destPath)
+    } catch {
+      needCopy = true
+    }
+    if (needCopy) {
+      physicalFs.copyFileSync(srcPath, destPath)
+      changed = true
+    }
+  }
+  // 清理发行包已不再分发的多余文件与目录，避免旧引擎残留。
+  for (const name of physicalFs.readdirSync(dest)) {
+    const srcPath = path.join(src, name)
+    const destPath = path.join(dest, name)
+    const st = physicalFs.statSync(destPath)
+    if (st.isDirectory()) {
+      if (syncUnpackedTree(srcPath, destPath)) changed = true
+      if (!physicalFs.existsSync(srcPath)) {
+        physicalFs.rmSync(destPath, { recursive: true, force: true })
+        changed = true
+      }
+      continue
+    }
+    if (PRESERVED_RUNTIME_FILES.has(name.toLowerCase())) continue
+    if (!physicalFs.existsSync(srcPath)) {
+      physicalFs.rmSync(destPath, { force: true })
+      changed = true
+    }
+  }
+  return changed
+}
+
 export async function adoptPrebundledPlugins(pluginsAPI: PluginsAPI): Promise<void> {
   const dir = getPrebundledPluginsDir()
   if (!physicalFs.existsSync(dir)) return
@@ -216,19 +270,39 @@ export async function adoptPrebundledPlugins(pluginsAPI: PluginsAPI): Promise<vo
         }
         continue
       }
-      // asar 实体为市场原样分发，内容不做同步；但登记缺失时同样补回来。
-      if (!registeredPaths.has(destEntity.toLowerCase())) {
+      // asar 实体按文件名版本分发：同名但内容哈希不一致时说明发行包已重建，
+      // 需要按「发行包即权威」同步，否则升级后仍旧运行旧页面。
+      // 同步只覆盖 unpacked 侧车中发行包分发的文件，用户运行时配置保留。
+      let asarChanged = false
+      try {
+        if (fileHash(srcEntity) !== fileHash(destEntity)) {
+          physicalFs.copyFileSync(srcEntity, destEntity)
+          const srcUnpacked = `${srcEntity}.unpacked`
+          const destUnpacked = `${destEntity}.unpacked`
+          if (physicalFs.existsSync(srcUnpacked)) syncUnpackedTree(srcUnpacked, destUnpacked)
+          asarChanged = true
+          console.log(`[Prebundled] asar 实体同步更新: ${file}`)
+        }
+      } catch (error) {
+        console.warn('[Prebundled] asar 实体同步失败:', file, error)
+      }
+      // 登记缺失时把残留实体补回来。
+      if (asarChanged || !registeredPaths.has(destEntity.toLowerCase())) {
         const config = readPrebundledPluginJson(srcEntity)
         try {
           const result = await pluginsAPI.installer.adoptExistingEntity(destEntity)
           if (result?.success) {
-            console.log(`[Prebundled] 补登记残留实体: ${config?.name || file}`)
-            adoptedNew++
+            if (result.adopted) {
+              console.log(`[Prebundled] 补登记残留实体: ${config?.name || file}`)
+              adoptedNew++
+            } else if (asarChanged) {
+              synced++
+            }
           } else {
-            console.warn(`[Prebundled] 补登记失败: ${file}`, result?.error || '未知错误')
+            console.warn('[Prebundled] 补登记失败:', file, result?.error || '未知错误')
           }
         } catch (error) {
-          console.warn(`[Prebundled] 补登记异常: ${file}`, error)
+          console.warn('[Prebundled] 补登记异常:', file, error)
         }
         continue
       }

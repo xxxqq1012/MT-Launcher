@@ -698,6 +698,60 @@
       .rule-right textarea[readonly] {
         color: var(--success);
       }
+      /* 3.2.45：范本区 / 效果区也套语法高亮层，跟随「配色」里选的 token 颜色。
+         外层 .sample-shell 承担边框与背景，textarea 透明浮在高亮层之上 */
+      .rule-mid .sample-shell,
+      .rule-right .sample-shell {
+        position: relative;
+        flex: 1 1 auto;
+        min-height: 0;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface, transparent);
+        overflow: hidden;
+      }
+      .rule-mid .sample-shell textarea,
+      .rule-right .sample-shell textarea {
+        position: relative;
+        z-index: 1;
+        flex: 1 1 auto;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        color: transparent;
+        caret-color: var(--tk-caret);
+      }
+      .rule-mid .sample-shell textarea[readonly],
+      .rule-right .sample-shell textarea[readonly] {
+        color: transparent;
+      }
+      .rule-mid .sample-hl,
+      .rule-right .sample-hl {
+        position: absolute;
+        inset: 0;
+        margin: 0;
+        padding: 10px 12px;
+        font-family: ui-monospace, Consolas, 'Courier New', monospace;
+        font-size: var(--editor-fs, 12px);
+        line-height: 1.55;
+        tab-size: 2;
+        white-space: pre;
+        word-wrap: normal;
+        overflow: scroll;
+        scrollbar-width: none;
+        pointer-events: none;
+        color: var(--tk-pl);
+        background: transparent;
+        display: block;
+        z-index: 0;
+      }
+      .rule-mid .sample-hl::-webkit-scrollbar,
+      .rule-right .sample-hl::-webkit-scrollbar {
+        display: none;
+      }
       /* ===== 非布尔参数控件（sqlFormat.cfg 附加参数） ===== */
       .rule-params {
         margin-top: 14px;
@@ -1070,19 +1124,25 @@
             </div>
             <div class="rule-mid">
               <div class="rule-head"><span>SQL 范本</span></div>
-              <textarea id="cfgSampleInput" spellcheck="false" aria-label="SQL 范本"></textarea>
+              <div class="sample-shell">
+                <pre class="sample-hl" id="cfgSampleInputHl" aria-hidden="true"></pre>
+                <textarea id="cfgSampleInput" spellcheck="false" aria-label="SQL 范本"></textarea>
+              </div>
             </div>
             <div class="rule-right">
               <div class="rule-head">
                 <span>格式化效果</span>
                 <span id="cfgPreviewStatus" class="hint"></span>
               </div>
-              <textarea
-                id="cfgSampleOutput"
-                spellcheck="false"
-                readonly
-                aria-label="格式化效果"
-              ></textarea>
+              <div class="sample-shell">
+                <pre class="sample-hl" id="cfgSampleOutputHl" aria-hidden="true"></pre>
+                <textarea
+                  id="cfgSampleOutput"
+                  spellcheck="false"
+                  readonly
+                  aria-label="格式化效果"
+                ></textarea>
+              </div>
             </div>
           </div>
           <div class="rule-params">
@@ -1453,6 +1513,9 @@
         function rerenderAllHl() {
           renderHl($('inputHl'), $('inputSql'))
           renderHl($('outputHl'), $('outputSql'), brkMarks)
+          // 规则配置里的范本区 / 效果区也跟随配色
+          renderHl($('cfgSampleInputHl'), $('cfgSampleInput'))
+          renderHl($('cfgSampleOutputHl'), $('cfgSampleOutput'))
         }
 
         /* ================= 3.2.45 SQL 编辑器配色（浅色 / 深色两套 token 配色 + 取色器） ================= */
@@ -2172,6 +2235,8 @@
             }
           } finally {
             previewBusy = false
+            // textarea.value 直接赋值不触发 input，手动刷新高亮层
+            renderHl($('cfgSampleOutputHl'), out)
           }
         }
 
@@ -2211,6 +2276,7 @@
           }
           // 每次打开规则配置都加载默认范本（可编辑，下次打开恢复默认）
           $('cfgSampleInput').value = SAMPLE_SQL
+          renderHl($('cfgSampleInputHl'), $('cfgSampleInput'))
           loadCfgIntoRules()
           schedulePreview()
         }
@@ -3573,6 +3639,8 @@
         bindButtons()
         bindHl($('inputHl'), $('inputSql'))
         bindHl($('outputHl'), $('outputSql'))
+        bindHl($('cfgSampleInputHl'), $('cfgSampleInput'))
+        bindHl($('cfgSampleOutputHl'), $('cfgSampleOutput'))
 
         // bundle 清空/粘贴/注入时直接改 textarea.value，不触发 input 事件，
         // 轮询保证高亮层与文本始终一致（修复“清空后原始 SQL 残留”）

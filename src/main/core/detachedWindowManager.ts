@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, WebContentsView } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, screen, WebContentsView } from 'electron'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { v4 as uuidv4 } from 'uuid'
 import databaseAPI from '../api/shared/database'
@@ -360,28 +360,39 @@ class DetachedWindowManager {
         const newBounds = win.getContentBounds()
         const currentTitlebarHeight = this.getTitlebarHeight()
         // 升级期间的 0 高度是临时状态，不得覆盖用户保存的窗口尺寸。
-        if (!this.suppressedSizePersistenceWindows.has(windowId)) {
-          this.schedulePersistWindowSize(
-            windowId,
-            pluginName,
-            newBounds.width,
-            newBounds.height - currentTitlebarHeight
-          )
+        // 最大化尺寸也不是用户偏好的窗口尺寸，不写入数据库。
+        if (this.suppressedSizePersistenceWindows.has(windowId) || win.isMaximized()) {
+          return
         }
+        this.schedulePersistWindowSize(
+          windowId,
+          pluginName,
+          newBounds.width,
+          newBounds.height - currentTitlebarHeight
+        )
       })
 
       // maximize/unmaximize/restore 在部分平台（尤其 Windows 无边框窗口）不触发 resize，
       // 需显式重算插件视图边界，否则分离窗口最大化后插件视图停留在分离前高度，
       // 窗口底部露出大片空白（表现为「底部一大片导航栏/工具栏」）。
-      win.on('maximize', () => {
-        if (!win.isDestroyed()) layoutPluginView()
-      })
-      win.on('unmaximize', () => {
-        if (!win.isDestroyed()) layoutPluginView()
-      })
-      win.on('restore', () => {
-        if (!win.isDestroyed()) layoutPluginView()
-      })
+      // Windows 最大化有过渡动画，事件触发瞬间 getContentBounds 可能仍是旧值，
+      // 因此除事件回调外再补两次延迟重算，覆盖动画结束后的最终尺寸。
+      const relayoutAfterWindowStateChange = (): void => {
+        if (win.isDestroyed()) return
+        layoutPluginView()
+        setTimeout(() => {
+          if (!win.isDestroyed() && !pluginView.webContents.isDestroyed()) layoutPluginView()
+        }, 120)
+        setTimeout(() => {
+          if (!win.isDestroyed() && !pluginView.webContents.isDestroyed()) layoutPluginView()
+        }, 400)
+      }
+
+      win.on('maximize', relayoutAfterWindowStateChange)
+      win.on('unmaximize', relayoutAfterWindowStateChange)
+      win.on('restore', relayoutAfterWindowStateChange)
+      win.on('enter-full-screen', relayoutAfterWindowStateChange)
+      win.on('leave-full-screen', relayoutAfterWindowStateChange)
 
       // 保存窗口信息
       const windowInfo: DetachedWindowInfo = {
@@ -829,27 +840,52 @@ class DetachedWindowManager {
    */
   public setExpendHeight(webContentsId: number, height: number): void {
     for (const info of this.detachedWindowMap.values()) {
-      if (info.view.webContents.id === webContentsId) {
-        if (info.window.isDestroyed()) return
+      if (info.view.webContents.id !== webContentsId) continue
+      if (info.window.isDestroyed()) return
 
-        const bounds = info.window.getContentBounds()
-        const titlebarHeight = this.getTitlebarHeight()
-        const newWindowHeight = height + titlebarHeight
+      const bounds = info.window.getContentBounds()
+      const titlebarHeight = this.getTitlebarHeight()
 
-        // 调整窗口大小
-        info.window.setContentSize(bounds.width, newWindowHeight)
-
-        // 调整插件视图大小
+      // 最大化/全屏时窗口尺寸由窗口管理器决定。插件挂载时按自己的偏好调用
+      // setExpendHeight（例如 SQL 格式化固定请求 600px），若照搬去设置视图高度，
+      // 窗口仍是满屏而插件视图只有 600px，窗口底部会露出大片空白。
+      // 此时保持视图占满内容区，忽略插件的高度请求。
+      if (
+        info.window.isMaximized() ||
+        info.window.isFullScreen() ||
+        info.window.isSimpleFullScreen()
+      ) {
         info.view.setBounds({
           x: 0,
           y: titlebarHeight,
           width: bounds.width,
-          height: height
+          height: Math.max(0, bounds.height - titlebarHeight)
         })
-
-        console.log('[DetachedWindow] 设置分离窗口插件高度:', height)
+        console.log('[DetachedWindow] 忽略插件高度请求（窗口已最大化）:', height)
         return
       }
+
+      // 非最大化时按插件请求调整窗口高度，同时钳制在屏幕工作区内。
+      const workAreaHeight = screen.getDisplayMatching(bounds).workAreaSize.height
+      const targetViewHeight = Math.min(
+        Math.max(MIN_VIEW_HEIGHT, Math.round(height)),
+        Math.max(MIN_VIEW_HEIGHT, workAreaHeight - titlebarHeight)
+      )
+      const newWindowHeight = targetViewHeight + titlebarHeight
+
+      // 调整窗口大小
+      info.window.setContentSize(bounds.width, newWindowHeight)
+
+      // 调整插件视图大小
+      info.view.setBounds({
+        x: 0,
+        y: titlebarHeight,
+        width: bounds.width,
+        height: targetViewHeight
+      })
+
+      console.log('[DetachedWindow] 设置分离窗口插件高度:', targetViewHeight)
+      return
     }
   }
 

@@ -1,5 +1,20 @@
 # MT Launcher v3.2.0 更新记录
 
+## v3.2.57 分离窗口最大化后插件视图铺满
+
+- 修复自动分离插件在窗口最大化后插件页面只占 600px、窗口底部露出大片空白：插件挂载时会调用 `ztools.setExpendHeight(600)`，宿主原先无条件按该高度设置插件视图，而窗口已最大化不再变化，形成「满屏窗口 + 矮视图」
+- `detachedWindowManager.setExpendHeight` 改为：窗口最大化/全屏时忽略插件高度请求，插件视图始终铺满内容区；非最大化时仍按插件请求调整窗口高度，并钳制在屏幕工作区内
+- 分离窗口处于最大化时不再把满屏尺寸写回 `detached-window-sizes`，避免下次打开沿用错误的窗口尺寸
+- maximize / unmaximize / restore / 全屏切换统一走一次重算，并在 120ms、400ms 各补算一次，覆盖 Windows 最大化动画期间的旧边界值
+
+## v3.2.56 便携版数据目录可调
+
+- 新增 `portable` 打包目标：`mt-launcher-<ver>-win-x64-portable.exe`，单文件免安装，数据默认落 exe 同级 `data/`
+- 修复便携版数据迁移「假成功」：引导文件 `mt-data-path.txt` 原先写到单文件 exe 的临时解包目录（退出即清理），重启后回落旧目录；现统一由 `appDataPaths.getBootstrapDir()` 解析到 `PORTABLE_EXECUTABLE_DIR`（exe 真实所在目录）
+- 便携版「立即重启」改为拉起单文件 exe 本体（`PORTABLE_EXECUTABLE_FILE`），不再指向临时解包副本
+- 迁移完成后在新数据根写入 `.mt-data-initialized` 标记，避免下次启动回灌 `~/.ztools` 旧数据
+- 设置页（我的数据 - 数据迁移）新增便携版说明：显示引导文件路径，并提示移动/改名 exe 需同时带走该文件
+
 ## 品牌与交付 (Branding & Release)
 
 - 项目正式命名为 **MT Launcher**（原名 mTools，fork 自 ZToolsCenter/ZTools），GitHub 仓库同步更名

@@ -12,7 +12,7 @@ export const WINDOWS_INSTALL_INFO_FILE = 'ztools-install-info.json'
 export const WINDOWS_NSIS_INSTALL_MARKER_FILE = '.ztools-nsis-installed'
 export const WINDOWS_RELEASE_URL = GITHUB_LATEST_RELEASE_URL
 export const WINDOWS_UPDATE_OWNER = 'xxxqq1012'
-export const WINDOWS_UPDATE_REPO = 'mTools'
+export const WINDOWS_UPDATE_REPO = 'MT-Launcher'
 
 export interface WindowsInstallInfo {
   schemaVersion: number

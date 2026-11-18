@@ -1,13 +1,13 @@
 {
   "name": "mt-launcher",
-  "version": "3.2.57",
+  "version": "3.2.58",
   "description": "MT Launcher - uTools 平替启动器",
   "main": "./out/main/index.js",
   "author": "xxxqq1012",
-  "homepage": "https://github.com/xxxqq1012/mTools",
+  "homepage": "https://github.com/xxxqq1012/MT-Launcher",
   "repository": {
     "type": "git",
-    "url": "https://github.com/xxxqq1012/mTools.git"
+    "url": "https://github.com/xxxqq1012/MT-Launcher.git"
   },
   "bugs": {
     "url": "https://github.com/xxxqq1012/mTools/issues"

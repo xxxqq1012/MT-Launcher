@@ -1,5 +1,12 @@
 # MT Launcher v3.2.0 更新记录
 
+## v3.2.58 修复「需要更新 MT Launcher」误弹框
+
+- 修复 3.2.57 覆盖安装后每次启动都弹「请安装一次最新完整版本」：打包配置的更新仓库已改名为 `MT-Launcher`，而安装兼容校验里的仓库常量仍是 `mTools`，字符串比较必然失败，被判成「缺少 electron-updater 配置」进而要求迁移
+- `windowsInstallCompatibility` 的 `WINDOWS_UPDATE_REPO`、`macInstallCompatibility` 的 `MAC_UPDATE_REPO` 统一改为 `MT-Launcher`，macOS 侧同样的隐患一并修掉
+- `updateSource` 的仓库地址改为 `https://github.com/xxxqq1012/MT-Launcher`，不再依赖旧仓库地址的 301 跳转
+- 校验回归：zip/便携版目录（无 NSIS 标记）判为 `portable`，只做版本检查、不再弹框；`setup.exe` 安装版判为 `compatible`，可正常应用内更新
+
 ## v3.2.57 分离窗口最大化后插件视图铺满
 
 - 修复自动分离插件在窗口最大化后插件页面只占 600px、窗口底部露出大片空白：插件挂载时会调用 `ztools.setExpendHeight(600)`，宿主原先无条件按该高度设置插件视图，而窗口已最大化不再变化，形成「满屏窗口 + 矮视图」

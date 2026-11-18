@@ -11,7 +11,7 @@ export const MAC_UPDATER_TYPE = 'electron-updater-mac'
 export const MAC_INSTALL_INFO_FILE = 'ztools-install-info.json'
 export const MAC_RELEASE_URL = GITHUB_LATEST_RELEASE_URL
 export const MAC_UPDATE_OWNER = 'xxxqq1012'
-export const MAC_UPDATE_REPO = 'mTools'
+export const MAC_UPDATE_REPO = 'MT-Launcher'
 
 export interface MacInstallInfo {
   schemaVersion: number

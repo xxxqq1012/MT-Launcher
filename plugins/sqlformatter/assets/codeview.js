@@ -649,6 +649,158 @@
     core.renderHl(inHl, inTa, null)
   })
 
+  /* ---------------- 编辑区注释快捷键：Ctrl+/ 行注释，Ctrl+Shift+/ 块注释 ---------------- */
+  function lineStartOf(text, pos) {
+    if (pos <= 0) return 0
+    var p = text.lastIndexOf('\n', pos - 1)
+    return p < 0 ? 0 : p + 1
+  }
+
+  function lineEndOf(text, pos) {
+    var p = text.indexOf('\n', pos)
+    return p < 0 ? text.length : p
+  }
+
+  /** 应用一组原位替换：edits 按 pos 升序，元素为 { pos, del, ins } */
+  function applyTextEdits(text, edits) {
+    var out = ''
+    var last = 0
+    for (var i = 0; i < edits.length; i++) {
+      var ed = edits[i]
+      out += text.slice(last, ed.pos) + ed.ins
+      last = ed.pos + ed.del
+    }
+    return out + text.slice(last)
+  }
+
+  /** 把改动前的位置映射到改动后的文本 */
+  function mapPosAfterEdits(pos, edits) {
+    var delta = 0
+    for (var i = 0; i < edits.length; i++) {
+      var ed = edits[i]
+      if (pos >= ed.pos + ed.del) delta += ed.ins.length - ed.del
+      else if (pos > ed.pos) return ed.pos + delta + ed.ins.length
+      else break
+    }
+    return pos + delta
+  }
+
+  function commitInputEdit(text, selStart, selEnd) {
+    inTa.value = text
+    try {
+      inTa.setSelectionRange(selStart, selEnd)
+    } catch (err) {}
+    inTa.dispatchEvent(new Event('input', { bubbles: true }))
+    renderGutter()
+    syncGutterScroll()
+    try {
+      inTa.focus()
+    } catch (err) {}
+  }
+
+  /** 按整行切换 `--` 注释；多行选区逐行处理，全部已注释时整体取消 */
+  function toggleLineComment() {
+    var text = inTa.value
+    var s = inTa.selectionStart
+    var e = inTa.selectionEnd
+    var endPos = e
+    if (e > s && text.charAt(e - 1) === '\n') endPos = e - 1
+
+    var lines = []
+    var p = lineStartOf(text, s)
+    while (p <= endPos) {
+      var le = lineEndOf(text, p)
+      lines.push({ start: p, end: le })
+      if (le >= text.length) break
+      p = le + 1
+    }
+    if (!lines.length) return
+
+    var allCommented = lines.every(function (ln) {
+      var body = text.slice(ln.start, ln.end)
+      if (!body.trim()) return true
+      return /^[ \t]*--/.test(body)
+    })
+
+    var edits = []
+    lines.forEach(function (ln) {
+      var body = text.slice(ln.start, ln.end)
+      if (allCommented) {
+        var m = /^([ \t]*)--( ?)/.exec(body)
+        if (!m) return
+        edits.push({ pos: ln.start + m[1].length, del: 2 + (m[2] ? 1 : 0), ins: '' })
+      } else {
+        var indent = /^[ \t]*/.exec(body)[0]
+        edits.push({ pos: ln.start + indent.length, del: 0, ins: body.trim() ? '-- ' : '--' })
+      }
+    })
+    if (!edits.length) return
+
+    commitInputEdit(
+      applyTextEdits(text, edits),
+      mapPosAfterEdits(s, edits),
+      mapPosAfterEdits(e, edits)
+    )
+  }
+
+  /** 注释掉选中内容或当前整行（块注释标记）；有选区包住选区，无选区注释当前整行 */
+  function toggleBlockComment() {
+    var text = inTa.value
+    var s = inTa.selectionStart
+    var e = inTa.selectionEnd
+    var open = '/*'
+    var close = '*' + '/'
+    var wrappedRe = /^\/\*[\s\S]*\*\/$/
+
+    if (e > s) {
+      var sel = text.slice(s, e)
+      if (wrappedRe.test(sel)) {
+        var inner = sel
+          .slice(open.length, sel.length - close.length)
+          .replace(/^ /, '')
+          .replace(/ $/, '')
+        commitInputEdit(text.slice(0, s) + inner + text.slice(e), s, s + inner.length)
+        return
+      }
+      var wrappedSel = open + ' ' + sel + ' ' + close
+      commitInputEdit(text.slice(0, s) + wrappedSel + text.slice(e), s, s + wrappedSel.length)
+      return
+    }
+
+    var ls = lineStartOf(text, s)
+    var le = lineEndOf(text, s)
+    var body = text.slice(ls, le)
+    var indent = /^[ \t]*/.exec(body)[0]
+    var content = body.slice(indent.length)
+    if (wrappedRe.test(content)) {
+      var inner2 = content
+        .slice(open.length, content.length - close.length)
+        .replace(/^ /, '')
+        .replace(/ $/, '')
+      commitInputEdit(
+        text.slice(0, ls) + indent + inner2 + text.slice(le),
+        ls + indent.length,
+        ls + indent.length + inner2.length
+      )
+      return
+    }
+    var wrapped = open + ' ' + content + ' ' + close
+    commitInputEdit(
+      text.slice(0, ls) + indent + wrapped + text.slice(le),
+      ls + indent.length,
+      ls + indent.length + wrapped.length
+    )
+  }
+
+  inTa.addEventListener('keydown', function (ev) {
+    if (!(ev.ctrlKey || ev.metaKey) || ev.altKey) return
+    if (!(ev.code === 'Slash' || ev.key === '/' || ev.key === '?')) return
+    ev.preventDefault()
+    ev.stopPropagation()
+    if (ev.shiftKey) toggleBlockComment()
+    else toggleLineComment()
+  })
+
   /* ---------------- 输入区行号 ---------------- */
   var gutterCount = -1
 
@@ -991,7 +1143,9 @@
     var key = e.key
     if ((e.ctrlKey || e.metaKey) && !e.altKey && (key === 'f' || key === 'F')) {
       e.preventDefault()
-      openFind()
+      // 再按一次 Ctrl+F 收起查找替换条，而不是重复打开
+      if (find.open) closeFind()
+      else openFind()
     } else if (key === 'Escape' && find.open) {
       closeFind()
     }

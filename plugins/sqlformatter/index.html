@@ -1449,9 +1449,9 @@
         <div class="config-section">
           <h3>特殊宏替换规则</h3>
           <span class="hint"
-            >规则取自《数据库【重要】》第 15 条。方向为「宏 → Oracle 写法」：只把格式化结果里的 %宏
-            还原成对应函数，例如 %SQLISNULL$2(col3,0) → nvl(col3,0)；其余 SQL 一律原样保留， 包括 ||
-            和 concat(...)。宏名里的 $n 表示参数个数，还原模板用 {{1}}～{{9}} 引用第 n 个参数，{{*}}
+            >方向为「宏 → Oracle 写法」：只把格式化结果里的 %宏 还原成对应函数，例如
+            %SQLISNULL$2(col3,0) → nvl(col3,0)；其余 SQL 一律原样保留， 包括 || 和
+            concat(...)。宏名里的 $n 表示参数个数，还原模板用 {{1}}～{{9}} 引用第 n 个参数，{{*}}
             表示按顺序拼接全部参数。只改结果面板，不改原始 SQL。</span
           >
           <label class="checkbox-label">

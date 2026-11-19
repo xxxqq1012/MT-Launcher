@@ -822,6 +822,7 @@
       }
       /* ===== 左右面板拖拽分隔条与右侧折叠为图标 ===== */
       .workspace {
+        position: relative;
         display: flex;
         align-items: stretch;
       }
@@ -866,6 +867,214 @@
       /* 复制按钮已移到工具栏，覆盖 bundle 的绝对定位 */
       #copyButton {
         position: static !important;
+      }
+      /* ===== 3.2.48：结果区代码视图（行号 + 折叠）、输入区行号槽、查找替换条 ===== */
+      .output-panel .editor-shell > textarea,
+      .output-panel .editor-shell > .sql-hl {
+        display: none;
+      }
+      .codeview {
+        position: absolute;
+        inset: 0;
+        overflow: auto;
+        padding: 13px 0 40px;
+        box-sizing: border-box;
+        z-index: 2;
+        font-family:
+          Cascadia Code,
+          JetBrains Mono,
+          Consolas,
+          monospace;
+        font-size: var(--editor-fs, 12px);
+        line-height: 1.65;
+        color: var(--tk-pl);
+        background: transparent;
+        white-space: pre;
+      }
+      .cv-row {
+        display: flex;
+        align-items: stretch;
+        white-space: pre;
+        min-height: 1.65em;
+      }
+      .cv-gutter {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        flex: 0 0 56px;
+        width: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 2px;
+        padding-right: 6px;
+        box-sizing: border-box;
+        background: var(--surface-strong);
+        border-right: 1px solid var(--line);
+        color: var(--muted);
+        user-select: none;
+      }
+      .cv-num {
+        min-width: 24px;
+        text-align: right;
+        opacity: 0.8;
+      }
+      .cv-fold-btn {
+        flex: 0 0 16px;
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        margin: 0;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 11px;
+        line-height: 16px;
+        text-align: center;
+        border-radius: 3px;
+      }
+      .cv-fold-btn:hover {
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .cv-fold-spacer {
+        flex: 0 0 16px;
+        width: 16px;
+      }
+      .cv-line {
+        padding: 0 14px 0 10px;
+        white-space: pre;
+      }
+      .cv-fold-dots {
+        margin-left: 4px;
+        padding: 0 5px;
+        border-radius: 3px;
+        color: var(--muted);
+        background: var(--accent-soft);
+      }
+      .cv-empty {
+        color: var(--muted);
+        padding: 2px 12px;
+      }
+      .tk-find {
+        background: rgba(255, 214, 0, 0.34);
+        border-radius: 2px;
+      }
+      .tk-find-cur {
+        background: rgba(255, 154, 0, 0.58);
+        border-radius: 2px;
+        box-shadow: 0 0 0 1px rgba(255, 154, 0, 0.75);
+      }
+      .editor-shell.has-gutter > .sql-hl {
+        padding-left: 58px;
+      }
+      .editor-shell.has-gutter > textarea {
+        padding-left: 58px;
+      }
+      .line-gutter {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 42px;
+        overflow: hidden;
+        z-index: 2;
+        box-sizing: border-box;
+        pointer-events: none;
+        background: var(--surface-strong);
+        border-right: 1px solid var(--line);
+        font-family:
+          Cascadia Code,
+          JetBrains Mono,
+          Consolas,
+          monospace;
+        font-size: var(--editor-fs, 12px);
+        line-height: 1.65;
+        color: var(--muted);
+      }
+      .line-gutter-inner {
+        padding: 13px 8px 48px 0;
+        text-align: right;
+        white-space: pre;
+        will-change: transform;
+      }
+      .findbar {
+        position: absolute;
+        top: 6px;
+        right: 10px;
+        z-index: 60;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        width: 366px;
+        padding: 6px 8px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--surface-strong);
+        box-shadow: var(--shadow);
+        font-size: 12px;
+      }
+      .fb-row {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .workspace.find-open .output-panel .codeview {
+        padding-top: 84px;
+      }
+      .findbar[hidden] {
+        display: none;
+      }
+      .findbar input[type='text'] {
+        flex: 1 1 auto;
+        min-width: 0;
+        width: auto;
+        padding: 4px 7px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        font-size: 12px;
+      }
+      .findbar input[type='text']:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .findbar .find-count {
+        min-width: 44px;
+        text-align: center;
+        color: var(--muted);
+      }
+      .findbar button {
+        padding: 4px 8px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .findbar button:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .findbar .find-ci {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .findbar .find-rx {
+        font-family: var(--mono, ui-monospace, Consolas, monospace);
+        letter-spacing: 0.5px;
+        color: var(--muted);
+      }
+      .findbar .find-rx.is-on {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 16%, transparent);
       }
     </style>
   </head>
@@ -960,6 +1169,9 @@
           >
             配色
           </button>
+          <button id="findButton" class="button ghost" type="button" title="查找替换（Ctrl + F）">
+            查找
+          </button>
           <button id="pasteButton" class="button ghost" type="button" title="从剪贴板粘贴">
             粘贴
           </button>
@@ -982,12 +1194,55 @@
       </section>
 
       <section class="workspace">
+        <div class="findbar" id="findBar" hidden>
+          <div class="fb-row">
+            <input
+              id="findQuery"
+              type="text"
+              placeholder="查找"
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <span class="find-count" id="findCount">0 / 0</span>
+            <button id="findPrev" type="button" title="上一个（Shift + Enter）">↑</button>
+            <button id="findNext" type="button" title="下一个（Enter）">↓</button>
+            <label class="find-ci" title="区分大小写">
+              <input id="findCase" type="checkbox" />
+              <span>Aa</span>
+            </label>
+            <button
+              id="findRegex"
+              class="find-rx"
+              type="button"
+              title="使用正则表达式"
+              aria-pressed="false"
+            >
+              .*
+            </button>
+            <button id="findClose" type="button" title="关闭（Esc）">✕</button>
+          </div>
+          <div class="fb-row">
+            <input
+              id="findReplaceText"
+              type="text"
+              placeholder="替换为"
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <button id="findReplaceOne" type="button" title="替换当前匹配">替换</button>
+            <button id="findReplaceAll" type="button" title="替换全部匹配">全部替换</button>
+          </div>
+        </div>
+
         <article class="editor-panel">
           <div class="panel-heading">
             <span>原始 SQL</span>
             <span id="inputStats" class="stats">0 字符</span>
           </div>
-          <div class="editor-shell">
+          <div class="editor-shell has-gutter">
+            <div class="line-gutter" id="inputGutter" aria-hidden="true">
+              <div class="line-gutter-inner" id="inputGutterInner"></div>
+            </div>
             <pre class="sql-hl" id="inputHl" aria-hidden="true"></pre>
             <textarea
               id="inputSql"
@@ -1013,6 +1268,12 @@
               placeholder="格式化结果会显示在这里"
               aria-label="格式化结果"
             ></textarea>
+            <div
+              class="codeview"
+              id="outputView"
+              role="region"
+              aria-label="格式化结果（代码视图）"
+            ></div>
           </div>
           <button
             id="collapseOutputButton"
@@ -1426,7 +1687,7 @@
           return set
         }
 
-        function highlightSql(text, marks) {
+        function highlightSql(text, marks, findRanges, findCur) {
           const src = String(text || '')
           const tables = collectTableNames(src)
           const markSet =
@@ -1436,43 +1697,53 @@
                 ? new Set(marks)
                 : null
           const hasMarks = !!markSet && markSet.size > 0
+          /* 3.2.48：查找命中着色。1 = 普通命中，2 = 当前命中 */
+          const findCls = new Uint8Array(src.length)
+          let hasFind = false
+          if (findRanges && findRanges.length) {
+            for (const r of findRanges) {
+              const isCur = !!findCur && r.start === findCur.start && r.end === findCur.end
+              const end = Math.min(r.end, src.length)
+              for (let i = r.start; i < end; i++) findCls[i] = isCur ? 2 : 1
+              hasFind = true
+            }
+          }
           let out = ''
           let last = 0
           let m
 
           const push = (chunk, base, cls) => {
             if (!chunk) return
-            if (!hasMarks) {
+            if (!hasMarks && !hasFind) {
               out += cls
                 ? '<span class="' + cls + '">' + escapeHtml(chunk) + '</span>'
                 : escapeHtml(chunk)
               return
             }
             let buf = ''
+            let bufCls = null
+            const flush = () => {
+              if (!buf) return
+              out += bufCls
+                ? '<span class="' + bufCls + '">' + escapeHtml(buf) + '</span>'
+                : escapeHtml(buf)
+              buf = ''
+              bufCls = null
+            }
             for (let i = 0; i < chunk.length; i++) {
               const idx = base + i
-              if (markSet.has(idx)) {
-                if (buf) {
-                  out += cls
-                    ? '<span class="' + cls + '">' + escapeHtml(buf) + '</span>'
-                    : escapeHtml(buf)
-                  buf = ''
-                }
-                out +=
-                  '<span class="' +
-                  (cls ? cls + ' tk-brk' : 'tk-brk') +
-                  '">' +
-                  escapeHtml(chunk[i]) +
-                  '</span>'
-              } else {
-                buf += chunk[i]
+              let c = cls || ''
+              if (hasMarks && markSet.has(idx)) c = c ? c + ' tk-brk' : 'tk-brk'
+              const f = findCls[idx]
+              if (f === 1) c = c ? c + ' tk-find' : 'tk-find'
+              else if (f === 2) c = c ? c + ' tk-find-cur' : 'tk-find-cur'
+              if (c !== bufCls) {
+                flush()
+                bufCls = c || null
               }
+              buf += chunk[i]
             }
-            if (buf) {
-              out += cls
-                ? '<span class="' + cls + '">' + escapeHtml(buf) + '</span>'
-                : escapeHtml(buf)
-            }
+            flush()
           }
 
           TOKEN_RE.lastIndex = 0
@@ -1493,9 +1764,9 @@
           return out
         }
 
-        function renderHl(hlEl, textarea, marks) {
+        function renderHl(hlEl, textarea, marks, findRanges, findCur) {
           if (!hlEl || !textarea) return
-          hlEl.innerHTML = highlightSql(textarea.value, marks) + '\u200b'
+          hlEl.innerHTML = highlightSql(textarea.value, marks, findRanges, findCur) + '\u200b'
           hlEl.scrollTop = textarea.scrollTop
           hlEl.scrollLeft = textarea.scrollLeft
         }
@@ -1516,6 +1787,7 @@
           // 规则配置里的范本区 / 效果区也跟随配色
           renderHl($('cfgSampleInputHl'), $('cfgSampleInput'))
           renderHl($('cfgSampleOutputHl'), $('cfgSampleOutput'))
+          if (window.__sfView) window.__sfView.render()
         }
 
         /* ================= 3.2.45 SQL 编辑器配色（浅色 / 深色两套 token 配色 + 取色器） ================= */
@@ -1817,6 +2089,10 @@
           )
           lines.push('引擎 jar: ' + (diag.jar || '未找到'))
           if (!diag.java) lines.push('诊断: 未找到 Java，请安装 JDK 8+ 或指定 java 路径')
+          if (diag.bundledBroken)
+            lines.push(
+              '诊断: 内置运行时损坏（jre 目录混入了旧版本文件），已跳过；重装或升级 MT Launcher 可自动修复'
+            )
           $('engineStatus').textContent = lines.join('\n')
           setEngineTone(
             $('engineStatus'),
@@ -2065,7 +2341,9 @@
 
         let previewTimer = null
         let previewBusy = false
+        let previewPending = false
         let previewSeq = 0
+        let ruleApplyTimer = null
 
         function buildRuleCheckboxes() {
           const box = $('ruleCheckboxes')
@@ -2088,7 +2366,16 @@
           box.addEventListener('change', (e) => {
             if (e.target && e.target.dataset && e.target.dataset.cfg) {
               updateCheckedCount()
-              schedulePreview()
+              // 「是否代码折叠」现在只作用于结果区代码视图
+              if (
+                e.target.dataset.cfg === 'ishowPseudoCodeWanted' &&
+                window.__sfView &&
+                typeof window.__sfView.setAutoFold === 'function'
+              ) {
+                window.__sfView.setAutoFold(e.target.checked)
+              }
+              // 勾选即刻落盘并重跑预览，否则引擎读到的仍是旧 cfg，效果区不会变
+              scheduleApplyAndPreview()
             }
           })
         }
@@ -2133,12 +2420,17 @@
             }
             wrap.appendChild(item)
           }
-          wrap.addEventListener('change', schedulePreview)
-          wrap.addEventListener('input', schedulePreview)
+          wrap.addEventListener('change', scheduleApplyAndPreview)
+          wrap.addEventListener('input', scheduleApplyAndPreview)
         }
 
         function syncCheckboxes(cfgText) {
           for (const cb of document.querySelectorAll('#ruleCheckboxes input[data-cfg]')) {
+            // 「是否代码折叠」是视图级偏好，不从 cfg 反读（cfg 里恒为 false）
+            if (cb.dataset.cfg === 'ishowPseudoCodeWanted') {
+              cb.checked = !!(window.__sfView && window.__sfView.isAutoFold())
+              continue
+            }
             const m = new RegExp('^' + cb.dataset.cfg + '=(true|false)', 'm').exec(cfgText || '')
             cb.checked = m ? m[1] === 'true' : false
           }
@@ -2190,6 +2482,8 @@
             const ctrl = document.querySelector('#ruleParams [data-param="' + spec.key + '"]')
             if (!ctrl) continue
             const val = String(ctrl.value).trim()
+            // 数值框清空时保留原值，避免把空值写进 cfg 让引擎报错
+            if (!val) continue
             const re = new RegExp('^' + spec.key + '=.*$', 'm')
             if (re.test(out)) {
               out = out.replace(re, spec.key + '=' + val)
@@ -2197,12 +2491,43 @@
               out += '\n' + spec.key + '=' + val
             }
           }
+          // 「是否代码折叠」改为编辑器视图级折叠：cfg 固定 false，避免引擎把长表达式折成 "..."
+          if (/^ishowPseudoCodeWanted=/m.test(out)) {
+            out = out.replace(/^ishowPseudoCodeWanted=.*$/m, 'ishowPseudoCodeWanted=false')
+          } else {
+            out += '\nishowPseudoCodeWanted=false'
+          }
           return out
         }
 
         function schedulePreview() {
           if (previewTimer) clearTimeout(previewTimer)
           previewTimer = setTimeout(runPreview, 350)
+        }
+
+        /**
+         * 规则改动 → 立刻写回 cfg → 重跑右侧预览 → 同步刷新主界面格式化结果。
+         * 引擎每次都是从磁盘读 sqlFormat.cfg，不落盘的话预览与结果都不会变。
+         */
+        function scheduleApplyAndPreview() {
+          if (ruleApplyTimer) clearTimeout(ruleApplyTimer)
+          ruleApplyTimer = setTimeout(() => {
+            ruleApplyTimer = null
+            const ok = applyRules(false)
+            if (ok) setStatus($('cfgStatus'), '规则已即时生效', true)
+            refreshMainResult()
+          }, 400)
+        }
+
+        /** 主界面已有结果时，规则变了就跟着重格式化一次（代码折叠等开关立即看得到） */
+        function refreshMainResult() {
+          const inp = $('inputSql')
+          const out = $('outputSql')
+          const btn = $('formatButton')
+          if (!inp || !out || !btn) return
+          if (!inp.value.trim()) return
+          if (!out.value.trim()) return
+          btn.click()
         }
 
         function runPreview() {
@@ -2214,7 +2539,11 @@
             setStatus(status, '桥接不可用', false)
             return
           }
-          if (previewBusy) return
+          // 引擎跑一次要 1~2s；期间再有改动先记下，等这轮结束补跑，避免丢更新
+          if (previewBusy) {
+            previewPending = true
+            return
+          }
           previewBusy = true
           const seq = ++previewSeq
           setStatus(status, '引擎运行中…', null)
@@ -2237,6 +2566,10 @@
             previewBusy = false
             // textarea.value 直接赋值不触发 input，手动刷新高亮层
             renderHl($('cfgSampleOutputHl'), out)
+            if (previewPending) {
+              previewPending = false
+              schedulePreview()
+            }
           }
         }
 
@@ -2540,6 +2873,8 @@
           hlNodesCache.el = null
           hlNodesCache.nodes = null
           renderHl($('outputHl'), $('outputSql'), brkMarks)
+          // 3.2.48：结果区改由代码视图渲染（行号 / 折叠 / 查找高亮）
+          if (window.__sfView) window.__sfView.render()
         }
 
         function handleOutputHover(x, y) {
@@ -3650,7 +3985,11 @@
           const ita = $('inputSql')
           if (ita && ita.value !== lastIn) {
             lastIn = ita.value
-            renderHl($('inputHl'), ita)
+            if (window.__sfView && typeof window.__sfView.renderInput === 'function') {
+              window.__sfView.renderInput()
+            } else {
+              renderHl($('inputHl'), ita)
+            }
           }
           const ota = $('outputSql')
           if (ota && ota.value !== lastOut) {
@@ -3772,6 +4111,27 @@
             right.classList.remove('collapsed')
           })
         })()
+        /* 3.2.48：把代码视图要用的内部工具交给 assets/codeview.js（外部脚本在本文件之后加载） */
+        window.__sfCore = {
+          $: $,
+          highlightSql: highlightSql,
+          escapeHtml: escapeHtml,
+          collectTableNames: collectTableNames,
+          KW_SET: KW_SET,
+          TOKEN_RE: TOKEN_RE,
+          buildBracketPairs: buildBracketPairs,
+          isBracketOpen: isBracketOpen,
+          isBracketClose: isBracketClose,
+          renderHl: renderHl,
+          renderOutHl: renderOutHl,
+          refreshMainResult: refreshMainResult,
+          setStatus: setStatus,
+          getBrkMarks: () => brkMarks,
+          setBrkMarks: (v) => {
+            brkMarks = v
+          }
+        }
+
         // 首次进入时静态探测引擎并更新页面底栏提示（不执行 java，不阻塞）
         try {
           const b = window.sqlFormatterBridge
@@ -3851,5 +4211,6 @@
         }
       })()
     </script>
+    <script src="./assets/codeview.js"></script>
   </body>
 </html>

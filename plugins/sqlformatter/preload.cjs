@@ -45,14 +45,24 @@ function writeSettings(settings) {
   }
 }
 
+/** 试跑 java -version，确认该运行时真能拉起 JVM（合并残留的 jre 目录会直接失败） */
+function javaUsable(cmd) {
+  try {
+    cp.execFileSync(cmd, ['-version'], { timeout: 6000, stdio: 'ignore', windowsHide: true })
+    return true
+  } catch {
+    return false
+  }
+}
+
 /** 探测可用的 java（优先级：内置 jre > 用户指定 > PATH > JAVA_HOME > Oracle > Program Files\Java > DBeaver jre） */
 function findJava(settings) {
   const win = process.platform === 'win32'
   const bundledJre = path.join(unpackedDir, 'jre', 'bin', win ? 'java.exe' : 'java')
-  if (fs.existsSync(bundledJre)) return bundledJre
+  if (fs.existsSync(bundledJre) && javaUsable(bundledJre)) return bundledJre
 
   const userPath = settings?.javaPath
-  if (userPath && fs.existsSync(userPath)) return userPath
+  if (userPath && fs.existsSync(userPath) && javaUsable(userPath)) return userPath
 
   const candidates = []
   candidates.push('java')
@@ -124,17 +134,23 @@ function formatWithEngine(sqlText) {
   }
 }
 
-/** 静态引擎探测：不执行 java，仅检查路径可用性（快，供页面加载时提示） */
+/** 引擎探测：内置 jre 会实跑一次 -version 校验（合并残留的运行时不可用，需回退） */
 function engineProbe() {
   const settings = readSettings()
   const win = process.platform === 'win32'
   const bundledJre = path.join(unpackedDir, 'jre', 'bin', win ? 'java.exe' : 'java')
   let java = null
   let javaFrom = null
+  let bundledBroken = false
   if (fs.existsSync(bundledJre)) {
-    java = bundledJre
-    javaFrom = '内置 JRE'
-  } else {
+    if (javaUsable(bundledJre)) {
+      java = bundledJre
+      javaFrom = '内置 JRE'
+    } else {
+      bundledBroken = true
+    }
+  }
+  if (!java) {
     const userPath = settings?.javaPath
     if (userPath && fs.existsSync(userPath)) {
       java = userPath
@@ -145,7 +161,8 @@ function engineProbe() {
     java,
     javaFrom,
     jar: findJar(),
-    bundled: !!java,
+    bundled: !!java && !bundledBroken,
+    bundledBroken,
     settingsPath: path.join(unpackedDir, SETTINGS_NAME),
     cfgPath: path.join(unpackedDir, CFG_NAME)
   }

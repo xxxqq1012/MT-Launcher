@@ -255,6 +255,7 @@
       pinned = false
       hoverKey = ''
       if (core.setBrkMarks) core.setBrkMarks([])
+      syncBrkToInput(-1, -1)
       if (foldAuto) foldAll()
     }
 
@@ -488,13 +489,55 @@
     return null
   }
 
+  /* ---------------- 结果区括号 → 原始 SQL 区同步高亮 ---------------- */
+  /** 结果区括号在输入区按「括号序号」找对应括号（格式化只改空白，不改括号序列） */
+  function inputPairFromOutput(hit) {
+    var outText = outTa.value
+    var inText = inTa.value
+    if (!outText || !inText || hit < 0 || hit >= outText.length) return null
+    var ord = -1
+    for (var i = 0; i <= hit; i++) {
+      if (core.isBracketOpen(outText[i]) || core.isBracketClose(outText[i])) ord++
+    }
+    if (ord < 0) return null
+    var inHit = -1
+    var count = -1
+    for (var j = 0; j < inText.length; j++) {
+      if (core.isBracketOpen(inText[j]) || core.isBracketClose(inText[j])) {
+        count++
+        if (count === ord) {
+          inHit = j
+          break
+        }
+      }
+    }
+    if (inHit < 0) return null
+    var pair = core.buildBracketPairs(inText).get(inHit)
+    if (pair === undefined) return null
+    return [inHit, pair]
+  }
+
+  /** 结果区括号高亮同步到原始 SQL 编辑区；hit < 0 表示清除输入区高亮 */
+  function syncBrkToInput(hit, pair) {
+    var next = []
+    if (hit >= 0 && pair !== undefined) {
+      var mapped = inputPairFromOutput(hit)
+      if (mapped) next = mapped
+    }
+    if (next[0] === inputBrkMarks[0] && next[1] === inputBrkMarks[1]) return
+    inputBrkMarks = next
+    renderInputHl()
+  }
+
   function applyBrk(idx) {
     var text = outTa.value
     var hit = markAt(idx)
     if (hit === null) {
       if (hoverKey !== 'none') {
         hoverKey = 'none'
+        pinned = false // 点击空白清高亮时同步解除固定，恢复悬停匹配
         if (core.setBrkMarks) core.setBrkMarks([])
+        syncBrkToInput(-1, -1)
         render()
       }
       return
@@ -505,6 +548,7 @@
     if (key === hoverKey) return
     hoverKey = key
     if (core.setBrkMarks) core.setBrkMarks(pair === undefined ? [] : [hit, pair])
+    syncBrkToInput(hit, pair)
     render()
   }
 
@@ -521,6 +565,7 @@
     if (hoverKey && hoverKey !== 'none') {
       hoverKey = 'none'
       if (core.setBrkMarks) core.setBrkMarks([])
+      syncBrkToInput(-1, -1)
       clearBrkMarksDom()
     }
   })
@@ -549,6 +594,7 @@
     if (hoverKey === 'none') return
     hoverKey = 'none'
     if (core.setBrkMarks) core.setBrkMarks([])
+    syncBrkToInput(-1, -1)
     render()
   })
 
@@ -584,6 +630,7 @@
     pinned = true
     hoverKey = 'none'
     if (core.setBrkMarks) core.setBrkMarks([info.hit, info.pair])
+    syncBrkToInput(info.hit, info.pair)
     render()
     setViewSelection(info.from, info.to)
     selecting = false

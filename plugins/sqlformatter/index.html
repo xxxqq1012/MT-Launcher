@@ -845,7 +845,15 @@
       .output-panel.collapsed .copy-button {
         display: none;
       }
-      .output-panel .collapse-icon {
+      /* 左面板同样支持折叠为图标（拖分隔条到最左） */
+      .editor-panel.collapsed {
+        position: relative;
+      }
+      .editor-panel.collapsed .editor-shell,
+      .editor-panel.collapsed .panel-heading {
+        display: none;
+      }
+      .editor-panel .collapse-icon {
         display: none;
         position: absolute;
         inset: 0;
@@ -861,7 +869,7 @@
         cursor: pointer;
         z-index: 5;
       }
-      .output-panel.collapsed .collapse-icon {
+      .editor-panel.collapsed .collapse-icon {
         display: flex;
       }
       /* 复制按钮已移到工具栏，覆盖 bundle 的绝对定位 */
@@ -1252,6 +1260,25 @@
               aria-label="原始 SQL"
             ></textarea>
           </div>
+          <button
+            id="collapseInputButton"
+            class="collapse-icon"
+            type="button"
+            title="恢复原始SQL面板"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="M3 10h18" />
+            </svg>
+          </button>
         </article>
 
         <article class="editor-panel output-panel">
@@ -4048,7 +4075,7 @@
         }
         $('copyButton').addEventListener('click', copyOutputText)
 
-        // ===== 左右面板拖拽分隔条：右侧可折叠为图标，点击图标还原初始 50/50 =====
+        // ===== 左右面板拖拽分隔条：两侧均可折叠为图标，点击图标还原初始 50/50 =====
         ;(() => {
           const ws = document.querySelector('.workspace')
           const left = document.querySelector('.workspace .editor-panel')
@@ -4056,17 +4083,29 @@
           if (!ws || !left || !right) return
           const MIN_RIGHT = 120 // 右面板最小宽度（放不下标题即折叠为图标）
           const COLLAPSE_AT = 135 // 低于该宽度进入图标模式
+          const MIN_LEFT = 120 // 左面板最小宽度
+          const COLLAPSE_LEFT_AT = 135 // 低于该宽度进入图标模式
           const splitter = document.createElement('div')
           splitter.className = 'splitter'
-          splitter.title = '拖动调整左右面板宽度'
+          splitter.title = '拖动调整左右面板宽度（拖到最左/最右可收起面板）'
           ws.insertBefore(splitter, right)
           let dragging = false
           let startX = 0
           let startW = 0
+          let maxLeftW = 0
           splitter.addEventListener('mousedown', (e) => {
             dragging = true
             startX = e.clientX
             startW = left.getBoundingClientRect().width
+            // 自校准：内容宽度 - 两个面板实测宽度 - 分隔条 = 面板 margin 等固定开销
+            const cs = getComputedStyle(ws)
+            const contentW =
+              ws.clientWidth -
+              (parseFloat(cs.paddingLeft) || 0) -
+              (parseFloat(cs.paddingRight) || 0)
+            const spW = splitter.getBoundingClientRect().width
+            const overhead = contentW - startW - spW - right.getBoundingClientRect().width
+            maxLeftW = contentW - overhead - spW - MIN_RIGHT
             splitter.classList.add('dragging')
             document.body.style.cursor = 'col-resize'
             document.body.style.userSelect = 'none'
@@ -4074,19 +4113,18 @@
           })
           document.addEventListener('mousemove', (e) => {
             if (!dragging) return
-            let w = Math.max(startW + (e.clientX - startX), 180)
+            let w = Math.max(startW + (e.clientX - startX), MIN_LEFT)
+            // 右面板不得窄于 MIN_RIGHT（不允许再往右拖）
+            if (w > maxLeftW) w = maxLeftW
             left.style.flex = '0 0 ' + w + 'px'
             right.style.flex = '1 1 auto'
-            // 用实际量测宽度封顶：右面板不得窄于 MIN_RIGHT（不允许再往右拖）
-            let rightW = right.getBoundingClientRect().width
-            if (rightW < MIN_RIGHT) {
-              const overshoot = MIN_RIGHT - rightW
-              left.style.flex = '0 0 ' + (w - overshoot) + 'px'
-              rightW = MIN_RIGHT
-            }
-            // 标题放不下（接近临界）即折叠为图标，宽度恢复则展开
+            // 左右两侧标题放不下（接近临界）即折叠为图标，宽度恢复则展开
+            const leftW = left.getBoundingClientRect().width
+            const rightW = right.getBoundingClientRect().width
             if (rightW < COLLAPSE_AT) right.classList.add('collapsed')
             else right.classList.remove('collapsed')
+            if (leftW < COLLAPSE_LEFT_AT) left.classList.add('collapsed')
+            else left.classList.remove('collapsed')
           })
           document.addEventListener('mouseup', () => {
             if (dragging) {
@@ -4096,20 +4134,19 @@
               document.body.style.userSelect = ''
             }
           })
-          const icon = $('collapseOutputButton')
-          if (icon) {
-            icon.addEventListener('click', () => {
-              right.classList.remove('collapsed')
-              left.style.flex = '1 1 50%'
-              right.style.flex = '1 1 50%'
-            })
-          }
-          // 窗口放大/缩小：分栏自动还原为中间
-          window.addEventListener('resize', () => {
+          // 点击任一侧的折叠图标：还原中间 50/50
+          const restoreBoth = () => {
             left.style.flex = '1 1 50%'
             right.style.flex = '1 1 50%'
+            left.classList.remove('collapsed')
             right.classList.remove('collapsed')
-          })
+          }
+          const iconOut = $('collapseOutputButton')
+          if (iconOut) iconOut.addEventListener('click', restoreBoth)
+          const iconIn = $('collapseInputButton')
+          if (iconIn) iconIn.addEventListener('click', restoreBoth)
+          // 窗口放大/缩小：分栏自动还原为中间
+          window.addEventListener('resize', restoreBoth)
         })()
         /* 3.2.48：把代码视图要用的内部工具交给 assets/codeview.js（外部脚本在本文件之后加载） */
         window.__sfCore = {

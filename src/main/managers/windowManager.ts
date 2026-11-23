@@ -775,6 +775,13 @@ class WindowManager {
     }
 
     // 普通快捷键模式：通过 globalShortcut 注册
+    // 若该快捷键已被本进程的某个模块注册（插件热键、快捷键录制临时占用、开发快捷键等），
+    // 先释放再占用，保证用户设置的呼出快捷键总是生效；跨进程占用时 isRegistered 为 false，
+    // 走下方注册失败回滚分支。
+    if (globalShortcut.isRegistered(keyToRegister)) {
+      globalShortcut.unregister(keyToRegister)
+      console.log(`快捷键 ${keyToRegister} 已被本进程占用，先释放再占用`)
+    }
     const ret = globalShortcut.register(keyToRegister, () => {
       if (!dndManager.shouldIgnoreHotkeys()) this.toggleWindow()
     })

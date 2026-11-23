@@ -33,6 +33,41 @@ export interface ZToolsDataLayout {
 export const DATA_PATH_CONFIG_FILE = 'mt-data-path.txt'
 
 /**
+ * 获取「引导文件所在目录」——打包后即用户看到的程序目录。
+ *
+ * 便携版单文件 exe 运行时会自解压到临时目录，`process.execPath` 指向解压副本；
+ * electron-builder 通过 `PORTABLE_EXECUTABLE_DIR` 提供单文件 exe 的真实所在目录。
+ * 引导文件、默认 `data/` 都必须落在这个目录，否则重启后配置丢失（临时目录会被清理）。
+ *
+ * @returns 打包版返回程序目录；开发模式返回空串。
+ */
+export function getBootstrapDir(): string {
+  if (!app?.isPackaged) return ''
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
+  if (portableDir && path.isAbsolute(portableDir)) return portableDir
+  return path.dirname(process.execPath)
+}
+
+/**
+ * 是否为便携版（单文件 exe）。
+ */
+export function isPortableBuild(): boolean {
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
+  return Boolean(portableDir && path.isAbsolute(portableDir))
+}
+
+/**
+ * 便携版原始单文件 exe 的绝对路径（electron-builder 注入 `PORTABLE_EXECUTABLE_FILE`）。
+ * 便携版运行时 `process.execPath` 指向 %TEMP% 下的自解包副本，重启后即被清理；
+ * 写注册表启动项等持久化场景必须使用该原始路径。非便携版返回 null。
+ */
+export function getPortableExecutableFile(): string | null {
+  const portableExe = process.env.PORTABLE_EXECUTABLE_FILE
+  if (isPortableBuild() && portableExe && path.isAbsolute(portableExe)) return portableExe
+  return null
+}
+
+/**
  * 获取 ZTools 数据根目录，测试进程可通过显式配置隔离真实用户数据。
  *
  * 解析优先级（打包版）：
@@ -49,7 +84,7 @@ export function getZToolsRoot(options: AppDataPathOptions = {}): string {
   if (options.dataRoot) return options.dataRoot
   if (process.env.ZTOOLS_DATA_ROOT) return process.env.ZTOOLS_DATA_ROOT
   if (app?.isPackaged) {
-    const exeDir = path.dirname(process.execPath)
+    const exeDir = getBootstrapDir()
     const configPath = path.join(exeDir, DATA_PATH_CONFIG_FILE)
     try {
       const dataRoot = fs.readFileSync(configPath, 'utf8').trim()

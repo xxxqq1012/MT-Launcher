@@ -7,6 +7,7 @@ import {
   OptimizedShortcutManager,
   WindowManager as NativeWindowManager
 } from '../../core/native/index.js'
+import { getPortableExecutableFile } from '../../core/appData/appDataPaths.js'
 import { getCurrentShortcut, updateShortcut } from '../../appMain.js'
 
 import dndManager from '../../core/dndManager.js'
@@ -393,16 +394,22 @@ export class SettingsAPI {
 
   // 设置开机启动
   public setLaunchAtLogin(enable: boolean): void {
+    // 便携版单文件 exe 每次运行都自解压到 %TEMP% 下的随机目录，Electron 默认写注册表用的是
+    // process.execPath（临时解包路径），重启后该路径已不存在，开机启动必然失效。
+    // 便携版必须改用 PORTABLE_EXECUTABLE_FILE 指向的原始 exe 写入启动项。
+    const portableExe = getPortableExecutableFile()
     app.setLoginItemSettings({
       openAtLogin: enable,
-      openAsHidden: true
+      openAsHidden: true,
+      ...(portableExe ? { path: portableExe, args: [] as string[] } : {})
     })
-    console.log('[Settings] 设置开机启动:', enable)
+    console.log('[Settings] 设置开机启动:', enable, portableExe ? `(便携版: ${portableExe})` : '')
   }
 
   // 获取开机启动状态
   public getLaunchAtLogin(): boolean {
-    const settings = app.getLoginItemSettings()
+    const portableExe = getPortableExecutableFile()
+    const settings = app.getLoginItemSettings(portableExe ? { path: portableExe } : undefined)
     return settings.openAtLogin
   }
 

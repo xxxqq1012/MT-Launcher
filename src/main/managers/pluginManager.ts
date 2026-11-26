@@ -2257,7 +2257,8 @@ export class PluginManager {
           path: windowInfo.pluginPath,
           canUseInternalApi: auth.canUseInternalApi,
           internalApiPermissions: auth.internalApiPermissions,
-          isBundledInternal: isBundledInternalPlugin(windowInfo.pluginName)
+          isBundledInternal: isBundledInternalPlugin(windowInfo.pluginName),
+          logo: windowInfo.pluginLogo
         }
       }
     }

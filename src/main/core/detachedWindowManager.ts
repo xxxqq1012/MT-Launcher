@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, Menu, screen, WebContentsView } from 'electron'
-import { fileURLToPath, pathToFileURL } from 'url'
+import { pathToFileURL } from 'url'
 import { v4 as uuidv4 } from 'uuid'
 import databaseAPI from '../api/shared/database'
 import { applyWindowMaterial } from '../utils/windowUtils'
@@ -11,6 +11,7 @@ import { registerExternalLinkInterceptor } from '../managers/pluginManager'
 import pluginWindowManager from './pluginWindowManager'
 import { getDetachedWindowSizeKey } from '../../shared/pluginRuntimeNamespace'
 import { getPreloadPath, getRendererPath } from '../utils/appBundlePath'
+import { resolvePluginIconPath } from '../utils/pluginIcon'
 import type { AiRequestStatus } from '../../shared/aiRequestStatus'
 import {
   STANDARD_DETACHED_WINDOW_TITLEBAR_HEIGHT,
@@ -260,15 +261,10 @@ class DetachedWindowManager {
       // Windows 系统配置（与主窗口保持一致）
       else if (isWindows) {
         windowConfig.backgroundColor = '#00000000' // 完全透明，让 Mica 材质显示
-        // 设置插件窗口独立图标
-        if (options.logo) {
-          try {
-            windowConfig.icon = options.logo.startsWith('file:')
-              ? fileURLToPath(options.logo)
-              : options.logo
-          } catch (error) {
-            console.warn('[DetachedWindow] 设置窗口图标失败:', error)
-          }
+        // 设置插件窗口独立图标（解码 file:// URL 并校验本地路径存在）
+        const iconPath = resolvePluginIconPath(options.logo, pluginPath)
+        if (iconPath) {
+          windowConfig.icon = iconPath
         }
       }
 

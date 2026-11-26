@@ -27,6 +27,7 @@ import { ZBROWSER_DEVICES, type DeviceConfig } from './devices'
 import zbrowserManager from './zbrowserManager'
 import TurndownService from 'turndown'
 import devToolsShortcut from '../../utils/devToolsShortcut'
+import { resolvePluginIconPath } from '../../utils/pluginIcon'
 
 /**
  * Electron 支持的键码映射表
@@ -1077,6 +1078,9 @@ export class ZBrowserExecutor {
         this._browserWindow = win
         // 从空闲池移除（正在使用中）
         zbrowserManager.removeIdleWindow(runtimeNamespace, ubrowserId)
+        // 兜底刷新图标：兼容旧版本遗留的无图标空闲窗口。
+        const reusedIconPath = resolvePluginIconPath(pluginLogo)
+        if (reusedIconPath) win.setIcon(reusedIconPath)
         console.log(`[zbrowser] 复用空闲窗口: windowId=${ubrowserId}`)
       } else {
         // 新建窗口模式
@@ -1190,9 +1194,11 @@ export class ZBrowserExecutor {
       }
     }
 
-    // 设置窗口图标
-    if (pluginLogo && fs.existsSync(pluginLogo)) {
-      winOptions.icon = pluginLogo
+    // 设置窗口图标：pluginLogo 可能是 file:// URL，需要先解码为本地物理路径，
+    // 否则 fs.existsSync 按字面路径判定恒为 false，图标会回退成 Electron 默认图标。
+    const iconPath = resolvePluginIconPath(pluginLogo)
+    if (iconPath) {
+      winOptions.icon = iconPath
     }
 
     const win = new BrowserWindow(winOptions)

@@ -6,6 +6,7 @@ import detachedWindowManager from '../../core/detachedWindowManager.js'
 import { registerPluginApiServices } from './pluginApiDispatcher'
 import { getPluginSessionPartition } from '../../../shared/pluginRuntimeNamespace'
 import { getUrlScheme } from '../../utils/pluginUrl'
+import { resolvePluginIconPath } from '../../utils/pluginIcon'
 
 /**
  * 插件独立窗口管理API - 插件专用
@@ -58,12 +59,19 @@ export class PluginWindowAPI {
         // 否则 sendSync 返回空值会让插件端在 result.methods.forEach 处炸出难以诊断的 TypeError
         let win: Electron.BrowserWindow
         try {
+          // 插件自建窗口（createBrowserWindow）默认不携带宿主图标；未显式传入 icon 时
+          // 用插件 logo 兜底，避免窗口与任务栏回退成 Electron 默认图标。
+          const iconPath = resolvePluginIconPath(pluginInfo.logo, pluginInfo.path)
+          const windowOptions: Electron.BrowserWindowConstructorOptions = {
+            ...(options || {}),
+            ...(iconPath && !options?.icon ? { icon: iconPath } : {})
+          }
           win = pluginWindowManager.createWindow(
             pluginInfo.path,
             pluginInfo.name,
             getPluginSessionPartition(pluginInfo.name),
             url,
-            options,
+            windowOptions,
             event.sender
           )
         } catch (error) {
